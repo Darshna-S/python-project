@@ -1,7 +1,0 @@
-string=input("Enter string:")
-count=0
-vowels="AEIOUaeiou"
-for ch in string:
-  if ch in vowels:
-    count+=1
-print("Number of vowels:",count)
