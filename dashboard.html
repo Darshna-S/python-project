@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Control Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; background-color: #f4f4f9; text-align: center; }
+        .box { max-width: 600px; margin: auto; padding: 30px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        p { font-size: 18px; color: #666; }
+        .user-details { background: #eef2f7; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: left; }
+        .status-badge { font-size: 20px; font-weight: bold; color: #007BFF; margin: 25px 0; }
+        .btn { padding: 10px 20px; margin: 5px; color: white; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold; min-width: 120px; }
+        
+        /* Button Style Variants */
+        .btn-start { background-color: #28a745; }            /* Green */
+        .btn-toggle-pause { background-color: #fd7e14; }     /* Orange Toggle */
+        .btn-toggle-resume { background-color: #17a2b8; }    /* Cyan Toggle */
+        .btn-end { background-color: #dc3545; }              /* Red */
+        
+        .flash-messages { color: green; font-weight: bold; margin-bottom: 20px; }
+        .signout-link { color: #666; text-decoration: none; margin-top: 40px; display: inline-block; }
+        .signout-link:hover { text-decoration: underline; color: #333; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h1>Welcome, {{ name }}! 👋</h1>
+    <p>You have successfully logged into the Candidate Management System portal.</p>
+    
+    <div class="user-details">
+        <strong>Registered Email Profile:</strong> {{ email }} <br>
+        <strong>System Authorization Status:</strong> Active Verified User Session
+    </div>
+    
+    <!-- Status & Action Flash Notifications -->
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for m in messages %}
+            <p>{{ m }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="status-badge">Current Exam Status: <u>{{ status }}</u></div>
+
+    <!-- Exam Session Management Control Block -->
+    <div style="margin-top: 30px;">
+        {% if status == 'Not Started' or status == 'Completed' %}
+            <!-- Initial state: allow user to start a session -->
+            <a href="/update_session/start" class="btn btn-start">Start Exam</a>
+        
+        {% elif status == 'Ongoing' %}
+            <!-- Running state: show Single Toggle button as 'Pause' -->
+            <a href="/update_session/pause" class="btn btn-toggle-pause">Pause Exam</a>
+            <a href="/update_session/end" class="btn btn-end">End Exam</a>
+        
+        {% elif status == 'Paused' %}
+            <!-- Paused state: show Single Toggle button as 'Resume' -->
+            <a href="/update_session/resume" class="btn btn-toggle-resume">Resume Exam</a>
+            <a href="/update_session/end" class="btn btn-end">End Exam</a>
+        {% endif %}
+    </div>
+
+    <br>
+    <a href="/logout" class="signout-link">Secure Sign Out</a>
+</div>
+
+</body>
+</html>
