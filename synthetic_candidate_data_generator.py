@@ -5,7 +5,6 @@ from faker import Faker
 fake = Faker()
 CSV_FILE = "synthetic_candidates.csv"
 subjects = ["Computer Science", "Data Structures", "Mathematics", "Machine Learning", "Cyber Security"]
-
 print("Generating 20 fake candidate profiles...")
 
 # Open file for writing
