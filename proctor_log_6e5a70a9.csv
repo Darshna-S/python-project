@@ -1,0 +1,45 @@
+==========================================
+AUTOMATED PROCTORING SESSION LOG REPORT
+==========================================
+Report Generated At,2026-07-24 19:21:48
+
+CANDIDATE DETAILS
+Candidate ID,C001
+Full Name,xyz
+Email Address,xyz@gmail.com
+Registration Photo Path,c:\Users\HP\Desktop\git folder\python-project\photos\C001_reg_1784900025.jpg
+
+SESSION METRICS SUMMARY
+Session ID,6e5a70a9
+Start Time,2026-07-24 19:04:11
+End Time,2026-07-24 19:21:27
+Status,Completed
+Total Face Absent Count,0
+Total Browser Focus Lost Count,5
+Face Detected Time (Seconds),5.4
+Total Session Time (Seconds),0.0
+
+EVENT LOG CHRONOLOGY
+Log ID,Candidate ID,Session ID,Event Type,Timestamp,Remarks
+3,C001,6e5a70a9,Exam Session Started,2026-07-24 19:04:11,Candidate initiated proctored exam session.
+4,C001,6e5a70a9,Browser Focus Lost,2026-07-24 19:04:26,Candidate switched away from the exam tab/window
+5,C001,6e5a70a9,Tab Hidden,2026-07-24 19:04:26,Exam page tab was hidden or minimized
+6,C001,6e5a70a9,Browser Focus Regained,2026-07-24 19:04:27,Candidate returned focus to the exam page
+7,C001,6e5a70a9,Tab Visible,2026-07-24 19:04:27,Exam page tab became visible again
+8,C001,6e5a70a9,Face Not Detected,2026-07-24 19:04:38,Candidate face lost (Absence #1). Screenshot captured: absence_C001_1784900078_count1.jpg
+9,C001,6e5a70a9,Face Not Detected,2026-07-24 19:04:41,Candidate face lost (Absence #2). Screenshot captured: absence_C001_1784900081_count2.jpg
+10,C001,6e5a70a9,Face Not Detected,2026-07-24 19:04:43,Candidate face lost (Absence #3). Screenshot captured: absence_C001_1784900083_count3.jpg
+11,C001,6e5a70a9,Face Not Detected,2026-07-24 19:04:43,Candidate face lost (Absence #4). Screenshot captured: absence_C001_1784900083_count4.jpg
+12,C001,6e5a70a9,Browser Focus Lost,2026-07-24 19:04:51,Candidate switched away from the exam tab/window
+13,C001,6e5a70a9,Tab Hidden,2026-07-24 19:04:51,Exam page tab was hidden or minimized
+14,C001,6e5a70a9,Tab Visible,2026-07-24 19:04:52,Exam page tab became visible again
+15,C001,6e5a70a9,Browser Focus Regained,2026-07-24 19:04:52,Candidate returned focus to the exam page
+16,C001,6e5a70a9,Browser Focus Lost,2026-07-24 19:04:59,Candidate switched away from the exam tab/window
+17,C001,6e5a70a9,Tab Hidden,2026-07-24 19:04:59,Exam page tab was hidden or minimized
+18,C001,6e5a70a9,Exam Session Paused,2026-07-24 19:21:12,Candidate toggled session state to Paused.
+19,C001,6e5a70a9,Exam Session Resumed,2026-07-24 19:21:15,Candidate toggled session state back to Ongoing.
+20,C001,6e5a70a9,Browser Focus Lost,2026-07-24 19:21:27,Candidate switched away from the exam tab/window
+21,C001,6e5a70a9,Browser Focus Regained,2026-07-24 19:21:27,Candidate returned focus to the exam page
+22,C001,6e5a70a9,Exam Session Submitted,2026-07-24 19:21:27,"Exam session finished. Total Absences: 0, Face Detected: 5.4s"
+23,C001,6e5a70a9,Browser Focus Lost,2026-07-24 19:21:27,Candidate switched away from the exam tab/window
+24,C001,6e5a70a9,Tab Hidden,2026-07-24 19:21:27,Exam page tab was hidden or minimized
