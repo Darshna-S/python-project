@@ -1,5 +1,4 @@
 students = []
-
 while True:
     print("\n--- Student Registration System ---")
     print("1. Register New Student")
