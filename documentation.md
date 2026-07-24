@@ -1,4 +1,4 @@
-# Automated Online Proctoring System
+**##Online Exam Monitoring & Integrity Analytics Platform**
 
 ## 1. Project Overview
 
