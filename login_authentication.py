@@ -7,7 +7,6 @@ user_db = {
 
 attempts = 0
 max_attempts = 3
-
 print("--- Secure Login System ---")
 
 while attempts < max_attempts:
