@@ -1,79 +1,40 @@
 import os
-import sqlite3
-import re
 import uuid
+import sqlite3
 from datetime import datetime
-import cv2
-from flask import Flask, render_template, request, redirect, flash, session, Response
+from flask import Flask, render_template, request, redirect, flash, session, Response, jsonify, send_file
+
+from database import (
+    init_db, get_db_connection, log_event, 
+    get_candidate_by_email, get_candidate_by_id, 
+    get_session_by_id, get_session_events, export_session_csv
+)
+from face_monitor import FaceMonitor
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-app = Flask(__name__, template_folder=BASE_DIR)
-app.secret_key = "super_secret_internship_key"
+app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
+app.secret_key = "proctorguard_internship_milestone_secret_key"
 
-# Ensure the photos directory exists
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'photos')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+face_monitor = FaceMonitor(BASE_DIR)
 
-DATABASE = os.path.join(BASE_DIR, 'database.db')
-
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS Candidate (
-            candidate_id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL,
-            photo_path TEXT
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS Session (
-            session_id TEXT PRIMARY KEY,
-            candidate_id TEXT,
-            start_time TEXT,
-            end_time TEXT,
-            status TEXT,
-            FOREIGN KEY (candidate_id) REFERENCES Candidate (candidate_id)
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-# OpenCV Video Stream Generator
-def gen_frames():
-    camera = cv2.VideoCapture(0)  # Open system webcam
-    while True:
-        success, frame = camera.read()
-        if not success:
-            break
-        else:
-            # Encode frame to JPEG format to push over HTTP
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame_bytes = buffer.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-    camera.release()
+@app.before_request
+def initialize_system():
+    init_db()
 
 @app.route('/video_feed')
 def video_feed():
-    """Live streaming route for the HTML page to read webcam frames."""
-    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    """Streaming route for HTML pages to render live webcam frames."""
+    return Response(
+        face_monitor.generate_frames(db_log_callback=log_event), 
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
 
 @app.route('/')
 def index():
     if 'candidate_id' in session:
         return redirect('/dashboard')
-    return redirect('/register')
+    return redirect('/login')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -82,41 +43,39 @@ def register():
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
-        
+
         if not c_id or not name or not email or not password:
-            flash("Error: All fields are mandatory.")
+            flash("Error: All form fields are mandatory.")
             return redirect('/register')
 
-        # Check for Duplicate Email
+        if get_candidate_by_email(email):
+            flash("Error: An account with this email address already exists.")
+            return redirect('/register')
+
+        if get_candidate_by_id(c_id):
+            flash("Error: Candidate ID already exists.")
+            return redirect('/register')
+
+        photo_path = face_monitor.capture_registration_photo(c_id)
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        if cursor.execute('SELECT email FROM Candidate WHERE email = ?', (email,)).fetchone():
-            conn.close()
-            flash("Error: This email address is already registered.")
-            return redirect('/register')
-
-        # OpenCV Image Capture: Grab a single frame right at form submission
-        camera = cv2.VideoCapture(0)
-        success, frame = camera.read()
-        photo_path = ""
-        if success:
-            filename = f"{c_id}_{int(datetime.now().timestamp())}.jpg"
-            photo_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            cv2.imwrite(photo_path, frame)  # Save image file locally
-        camera.release()
-
         try:
             cursor.execute('''
-                INSERT INTO Candidate (candidate_id, name, email, password, photo_path)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (c_id, name, email, password, photo_path))
+                INSERT INTO Candidate (candidate_id, name, email, password, photo_path, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (c_id, name, email, password, photo_path, now_str))
             conn.commit()
-            flash("Registration & OpenCV Photo Capture Successful! Please login.")
+            
+            log_event(c_id, 'Candidate Registered', now_str, f"Registered profile for {name} ({email}) with photo capture.")
+            
+            flash("Registration successful! Please log in to continue.")
             conn.close()
             return redirect('/login')
         except sqlite3.IntegrityError:
             conn.close()
-            flash("Error: Candidate ID already exists.")
+            flash("Error: Could not complete registration.")
             return redirect('/register')
 
     return render_template('register.html')
@@ -127,17 +86,19 @@ def login():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
 
-        conn = get_db_connection()
-        user = conn.execute('SELECT * FROM Candidate WHERE email = ? AND password = ?', (email, password)).fetchone()
-        conn.close()
+        candidate = get_candidate_by_email(email)
 
-        if user:
-            session['candidate_id'] = user['candidate_id']
-            session['name'] = user['name']
-            session['email'] = user['email']
+        if candidate and candidate['password'] == password:
+            session['candidate_id'] = candidate['candidate_id']
+            session['name'] = candidate['name']
+            session['email'] = candidate['email']
+
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            log_event(candidate['candidate_id'], 'Candidate Login', now_str, f"Successful candidate login from email {email}")
+            
             return redirect('/dashboard')
         else:
-            flash("Error: Invalid credentials.")
+            flash("Error: Invalid email or password credentials.")
             return redirect('/login')
 
     return render_template('login.html')
@@ -146,51 +107,147 @@ def login():
 def dashboard():
     if 'candidate_id' not in session:
         return redirect('/login')
-        
-    # Look up the current active exam session status for this specific candidate
+
+    candidate = get_candidate_by_id(session['candidate_id'])
+    
     conn = get_db_connection()
-    current_session = conn.execute(
-        'SELECT * FROM Session WHERE candidate_id = ? ORDER BY start_time DESC LIMIT 1', 
+    active_session = conn.execute(
+        'SELECT * FROM Session WHERE candidate_id = ? ORDER BY start_time DESC LIMIT 1',
         (session['candidate_id'],)
     ).fetchone()
     conn.close()
+
+    return render_template('dashboard.html', candidate=candidate, active_session=active_session)
+
+@app.route('/exam')
+def exam():
+    if 'candidate_id' not in session:
+        return redirect('/login')
+
+    candidate = get_candidate_by_id(session['candidate_id'])
+    return render_template('exam.html', candidate=candidate)
+
+@app.route('/api/monitoring_status')
+def monitoring_status():
+    status_data = face_monitor.get_current_status()
+    return jsonify(status_data)
+
+@app.route('/api/log_event', methods=['POST'])
+def api_log_event():
+    if 'candidate_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    data = request.get_json() or {}
+    event_type = data.get('event_type', 'JS Event')
+    remarks = data.get('remarks', '')
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    c_id = session['candidate_id']
+    s_id = session.get('active_session_id')
+
+    log_event(c_id, event_type, now_str, remarks, session_id=s_id)
     
-    current_status = current_session['status'] if current_session else "Not Started"
-    return render_template('dashboard.html', name=session['name'], email=session['email'], status=current_status)
+    if event_type == 'Browser Focus Lost' and s_id:
+        conn = get_db_connection()
+        conn.execute('UPDATE Session SET browser_focus_lost_count = browser_focus_lost_count + 1 WHERE session_id = ?', (s_id,))
+        conn.commit()
+        conn.close()
+
+    return jsonify({'status': 'success'})
 
 @app.route('/update_session/<action>')
 def update_session(action):
     if 'candidate_id' not in session:
         return redirect('/login')
-        
+
     c_id = session['candidate_id']
     now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Locate any existing tracking record
+
     existing = cursor.execute(
         'SELECT * FROM Session WHERE candidate_id = ? ORDER BY start_time DESC LIMIT 1', (c_id,)
     ).fetchone()
 
     if action == 'start':
-        s_id = str(uuid.uuid4())[:8] # Generate simple clean session ID hash
-        cursor.execute('INSERT INTO Session (session_id, candidate_id, start_time, status) VALUES (?, ?, ?, ?)', 
-                       (s_id, c_id, now_str, 'Ongoing'))
+        s_id = str(uuid.uuid4())[:8]
+        session['active_session_id'] = s_id
+        cursor.execute(
+            'INSERT INTO Session (session_id, candidate_id, start_time, status) VALUES (?, ?, ?, ?)',
+            (s_id, c_id, now_str, 'Ongoing')
+        )
+        conn.commit()
+        face_monitor.start_monitoring_session(s_id, c_id)
+        log_event(c_id, 'Exam Session Started', now_str, 'Candidate initiated proctored exam session.', session_id=s_id)
         flash("Exam session started successfully.")
-    elif action == 'pause' and existing:
-        cursor.execute('UPDATE Session SET status = ? WHERE session_id = ?', ('Paused', existing['session_id']))
-        flash("Exam session paused.")
-    elif action == 'resume' and existing:
-        cursor.execute('UPDATE Session SET status = ? WHERE session_id = ?', ('Ongoing', existing['session_id']))
-        flash("Exam session resumed.")
-    elif action == 'end' and existing:
-        cursor.execute('UPDATE Session SET status = ?, end_time = ? WHERE session_id = ?', ('Completed', now_str, existing['session_id']))
-        flash("Exam session completed and saved.")
+        conn.close()
+        return redirect('/exam')
 
-    conn.commit()
+    elif action == 'pause' and existing:
+        s_id = existing['session_id']
+        cursor.execute('UPDATE Session SET status = ? WHERE session_id = ?', ('Paused', s_id))
+        conn.commit()
+        log_event(c_id, 'Exam Session Paused', now_str, 'Candidate toggled session state to Paused.', session_id=s_id)
+        flash("Exam session toggled to Paused.")
+        conn.close()
+        return redirect('/dashboard')
+
+    elif action == 'resume' and existing:
+        s_id = existing['session_id']
+        cursor.execute('UPDATE Session SET status = ? WHERE session_id = ?', ('Ongoing', s_id))
+        conn.commit()
+        log_event(c_id, 'Exam Session Resumed', now_str, 'Candidate toggled session state back to Ongoing.', session_id=s_id)
+        flash("Exam session toggled to Resumed (Ongoing).")
+        conn.close()
+        return redirect('/exam')
+
+    elif action == 'end' and existing:
+        s_id = existing['session_id']
+        metrics = face_monitor.stop_monitoring_session()
+        
+        cursor.execute('''
+            UPDATE Session 
+            SET status = ?, end_time = ?, face_absent_count = ?, 
+                total_detected_seconds = ?, total_session_seconds = ?
+            WHERE session_id = ?
+        ''', ('Completed', now_str, metrics['absence_count'], 
+              metrics['total_detected_seconds'], metrics['total_session_seconds'], s_id))
+        conn.commit()
+
+        log_event(c_id, 'Exam Session Submitted', now_str, 
+                  f"Exam session finished. Total Absences: {metrics['absence_count']}, Face Detected: {metrics['total_detected_seconds']}s", 
+                  session_id=s_id)
+        flash("Exam session completed and saved.")
+        conn.close()
+        return redirect(f'/session_summary/{s_id}')
+
     conn.close()
     return redirect('/dashboard')
+
+@app.route('/session_summary/<session_id>')
+def session_summary(session_id):
+    if 'candidate_id' not in session:
+        return redirect('/login')
+
+    candidate = get_candidate_by_id(session['candidate_id'])
+    session_data = get_session_by_id(session_id)
+    events = get_session_events(session_id)
+
+    return render_template('summary.html', candidate=candidate, session_data=session_data, events=events)
+
+@app.route('/export_csv/<session_id>')
+def export_csv(session_id):
+    if 'candidate_id' not in session:
+        return redirect('/login')
+
+    filename = f"proctor_log_{session_id}.csv"
+    filepath = os.path.join(BASE_DIR, filename)
+    
+    success = export_session_csv(session_id, filepath)
+    if success:
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    else:
+        flash("Error generating CSV export file.")
+        return redirect('/dashboard')
 
 @app.route('/logout')
 def logout():
@@ -199,4 +256,5 @@ def logout():
 
 if __name__ == '__main__':
     init_db()
+    print("Starting Integrated Proctoring Flask Application on http://127.0.0.1:5000")
     app.run(debug=True, port=5000)

@@ -1,0 +1,22 @@
+# Python Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE & OS Files
+.vscode/
+.ds_store
+Thumbs.db
+
+# Generated Session Screenshots & Output CSVs (Optional local storage)
+*.log
+photos/*
+!photos/.gitkeep
+absence_screenshots/*
+!absence_screenshots/.gitkeep

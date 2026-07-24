@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Session Summary - Proctoring Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body {
+            background: #0f172a;
+            color: #f8fafc;
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 35px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 20px; margin-bottom: 25px; }
+        h2 { font-size: 26px; color: #38bdf8; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .metric-card {
+            background: #0f172a;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            text-align: center;
+        }
+        .metric-title { font-size: 13px; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; }
+        .metric-value { font-size: 24px; font-weight: 700; color: #f8fafc; }
+
+        .section-title { font-size: 18px; font-weight: 600; color: #cbd5e1; margin-bottom: 15px; }
+
+        .table-responsive { overflow-x: auto; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        th, td { padding: 12px 16px; border-bottom: 1px solid #334155; }
+        th { background: #0f172a; color: #38bdf8; font-weight: 600; text-transform: uppercase; font-size: 12px; }
+        tr:hover { background: rgba(56, 189, 248, 0.05); }
+
+        .actions { display: flex; gap: 15px; justify-content: center; }
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            color: white;
+            transition: all 0.2s;
+        }
+        .btn-csv { background: linear-gradient(90deg, #10b981 0%, #059669 100%); }
+        .btn-csv:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3); }
+        .btn-dash { background: #334155; }
+        .btn-dash:hover { background: #475569; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h2>Exam Session Report Summary</h2>
+                <p style="color:#94a3b8; font-size:14px; margin-top:4px;">Session ID: {{ session_data.session_id }}</p>
+            </div>
+            <a href="/export_csv/{{ session_data.session_id }}" class="btn btn-csv">📥 Download Log (CSV)</a>
+        </div>
+
+        <div class="grid">
+            <div class="metric-card">
+                <div class="metric-title">Candidate ID</div>
+                <div class="metric-value">{{ candidate.candidate_id }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Face Absent Count</div>
+                <div class="metric-value" style="color:#f43f5e;">{{ session_data.face_absent_count }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Browser Focus Lost</div>
+                <div class="metric-value" style="color:#fbbf24;">{{ session_data.browser_focus_lost_count }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Face Present Time</div>
+                <div class="metric-value" style="color:#34d399;">{{ session_data.total_detected_seconds }}s</div>
+            </div>
+        </div>
+
+        <div class="section-title">SQLite Event Chronology Log</div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Event Type</th>
+                        <th>Timestamp</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                        <tr>
+                            <td>{{ event.id }}</td>
+                            <td><strong style="color:#38bdf8;">{{ event.event_type }}</strong></td>
+                            <td>{{ event.timestamp }}</td>
+                            <td>{{ event.remarks }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="actions">
+            <a href="/dashboard" class="btn btn-dash">Return to Dashboard</a>
+            <a href="/export_csv/{{ session_data.session_id }}" class="btn btn-csv">📥 Download Log (CSV)</a>
+        </div>
+    </div>
+</body>
+</html>

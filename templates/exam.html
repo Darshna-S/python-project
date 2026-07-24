@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proctored Examination Room</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body {
+            background: #090d16;
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar {
+            background: #1e293b;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #334155;
+        }
+        .nav-title { font-size: 20px; font-weight: 700; color: #38bdf8; }
+        .candidate-info { font-size: 14px; color: #94a3b8; }
+        .candidate-info strong { color: #f8fafc; }
+        
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            padding: 20px;
+            flex: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Exam Questions Area */
+        .exam-container {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .exam-header { margin-bottom: 20px; }
+        .exam-header h3 { font-size: 22px; color: #e2e8f0; margin-bottom: 5px; }
+        .exam-header p { font-size: 14px; color: #94a3b8; }
+
+        .warning-banner {
+            display: none;
+            background: rgba(239, 68, 68, 0.2);
+            border: 2px solid #ef4444;
+            color: #fca5a5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 16px;
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { background: rgba(239, 68, 68, 0.2); }
+            to { background: rgba(239, 68, 68, 0.4); }
+        }
+
+        .question-box {
+            background: #0f172a;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            margin-bottom: 15px;
+        }
+        .question-box h4 { font-size: 16px; color: #38bdf8; margin-bottom: 12px; }
+        .option-item { margin: 8px 0; font-size: 15px; color: #cbd5e1; }
+        .option-item input { margin-right: 10px; }
+
+        /* Monitoring Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .webcam-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid #334155;
+            text-align: center;
+        }
+        .webcam-card h4 { font-size: 14px; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; }
+        .webcam-stream {
+            width: 100%;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            aspect-ratio: 4/3;
+            object-fit: cover;
+            background: #000;
+        }
+
+        .status-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #334155;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .badge-green { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+        .badge-red { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+
+        .btn-end {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+        .btn-end:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3); }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-title">PROCTORGUARD EXAM PORTAL</div>
+        <div class="candidate-info">Candidate: <strong>{{ candidate.name }}</strong> ({{ candidate.candidate_id }})</div>
+    </div>
+
+    <div class="main-layout">
+        <!-- Exam Content -->
+        <div class="exam-container">
+            <div>
+                <!-- Dynamic 5-Second Warning Banner -->
+                <div id="faceWarningBanner" class="warning-banner">
+                    ⚠️ WARNING: Candidate Face Not Detected! (Absence >= 5 seconds)
+                </div>
+
+                <div class="exam-header">
+                    <h3>Milestone Assessment Demonstration</h3>
+                    <p>Please answer the questions below while maintaining full camera visibility and browser focus.</p>
+                </div>
+
+                <div class="question-box">
+                    <h4>Question 1: Which SQLite function is used to create a connection in Python?</h4>
+                    <div class="option-item"><label><input type="radio" name="q1" value="a"> sqlite3.open()</label></div>
+                    <div class="option-item"><label><input type="radio" name="q1" value="b"> sqlite3.connect()</label></div>
+                    <div class="option-item"><label><input type="radio" name="q1" value="c"> sqlite3.create()</label></div>
+                </div>
+
+                <div class="question-box">
+                    <h4>Question 2: What OpenCV function is utilized to detect faces using Haar cascades?</h4>
+                    <div class="option-item"><label><input type="radio" name="q2" value="a"> detectMultiScale()</label></div>
+                    <div class="option-item"><label><input type="radio" name="q2" value="b"> findFaces()</label></div>
+                    <div class="option-item"><label><input type="radio" name="q2" value="c"> extractFaces()</label></div>
+                </div>
+            </div>
+
+            <a href="/update_session/end" onclick="return confirm('Are you sure you want to finish and submit the exam?');">
+                <button type="button" class="btn-end">🏁 Submit & Finish Exam Session</button>
+            </a>
+        </div>
+
+        <!-- Sidebar Monitoring -->
+        <div class="sidebar">
+            <div class="webcam-card">
+                <h4>Live Face Monitoring</h4>
+                <img src="/video_feed" class="webcam-stream" alt="Webcam Feed">
+            </div>
+
+            <div class="status-card">
+                <h4 style="color:#94a3b8; font-size:13px; text-transform:uppercase; margin-bottom:15px;">Real-Time Status</h4>
+                
+                <div class="status-row">
+                    <span>Face Visibility:</span>
+                    <span id="faceStatusBadge" class="badge badge-green">Face Present</span>
+                </div>
+                
+                <div class="status-row">
+                    <span>Browser Window:</span>
+                    <span id="browserStatusBadge" class="badge badge-green">Active</span>
+                </div>
+                
+                <div class="status-row">
+                    <span>Absence Count:</span>
+                    <span id="absenceCountText" style="font-weight:700; color:#38bdf8;">0</span>
+                </div>
+
+                <div class="status-row">
+                    <span>Session Timer:</span>
+                    <span id="sessionTimer" style="font-weight:700; color:#cbd5e1;">00:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Real-Time Status & Browser Activity Tracking JS -->
+    <script>
+        const sessionStart = Date.now();
+        const faceStatusBadge = document.getElementById('faceStatusBadge');
+        const browserStatusBadge = document.getElementById('browserStatusBadge');
+        const absenceCountText = document.getElementById('absenceCountText');
+        const faceWarningBanner = document.getElementById('faceWarningBanner');
+        const sessionTimer = document.getElementById('sessionTimer');
+
+        // Session Timer Counter
+        setInterval(() => {
+            const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+            const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const secs = String(elapsed % 60).padStart(2, '0');
+            sessionTimer.innerText = `${mins}:${secs}`;
+        }, 1000);
+
+        // Function to log JS browser events to Flask backend
+        function sendLogEvent(eventType, remarks) {
+            fetch('/api/log_event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event_type: eventType, remarks: remarks })
+            }).catch(err => console.error('Log error:', err));
+        }
+
+        // Browser Focus / Blur Event Listeners
+        window.onblur = function() {
+            browserStatusBadge.innerText = 'Inactive';
+            browserStatusBadge.className = 'badge badge-red';
+            sendLogEvent('Browser Focus Lost', 'Candidate switched away from the exam tab/window');
+        };
+
+        window.onfocus = function() {
+            browserStatusBadge.innerText = 'Active';
+            browserStatusBadge.className = 'badge badge-green';
+            sendLogEvent('Browser Focus Regained', 'Candidate returned focus to the exam page');
+        };
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                sendLogEvent('Tab Hidden', 'Exam page tab was hidden or minimized');
+            } else {
+                sendLogEvent('Tab Visible', 'Exam page tab became visible again');
+            }
+        });
+
+        // Poll Face Monitoring Status every 500ms
+        setInterval(() => {
+            fetch('/api/monitoring_status')
+                .then(res => res.json())
+                .then(data => {
+                    absenceCountText.innerText = data.absence_count;
+                    
+                    if (data.face_present) {
+                        faceStatusBadge.innerText = 'Face Present';
+                        faceStatusBadge.className = 'badge badge-green';
+                    } else {
+                        faceStatusBadge.innerText = 'Face Absent';
+                        faceStatusBadge.className = 'badge badge-red';
+                    }
+
+                    if (data.warning_active) {
+                        faceWarningBanner.style.display = 'block';
+                    } else {
+                        faceWarningBanner.style.display = 'none';
+                    }
+                })
+                .catch(err => console.error('Status poll error:', err));
+        }, 500);
+    </script>
+</body>
+</html>
