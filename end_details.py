@@ -317,7 +317,6 @@ while running:
     if key == ord('c'):
         filename = f"{full_timestamp_str}.jpg"
         filepath = os.path.join(OUTPUT_FOLDER, filename)
-        
         success = cv2.imwrite(filepath, frame)
         
         if success and os.path.exists(filepath) and os.path.getsize(filepath) > 0:

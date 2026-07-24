@@ -1,6 +1,6 @@
 import cv2
 import os
-import time
+import time  
 from datetime import datetime
 from database import create_tables, log_event
 
@@ -190,4 +190,4 @@ while True:
 # ------------------------
 cap.release()
 cv2.destroyAllWindows()
-print("Webcam Closed Successfully.")
+print("Webcam Closed Successfully")

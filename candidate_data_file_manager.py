@@ -54,3 +54,4 @@ while True:
     elif choice == '3': search_candidate()
     elif choice == '4': break
     else: print("Invalid entry.")
+    
