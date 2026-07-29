@@ -17,6 +17,82 @@ app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 app.secret_key = "proctorguard_internship_milestone_secret_key"
 
 face_monitor = FaceMonitor(BASE_DIR)
+def calculate_integrity_score(session_id, metrics):
+    """
+    Calculates Integrity Score based on session statistics.
+    """
+
+    conn = get_db_connection()
+
+    row = conn.execute("""
+        SELECT face_absent_count,
+               browser_focus_lost_count
+        FROM Session
+        WHERE session_id=?
+    """, (session_id,)).fetchone()
+
+    conn.close()
+
+    score = 100
+    penalty = 0
+
+    face_absent = row["face_absent_count"]
+    browser_lost = row["browser_focus_lost_count"]
+
+    total_session = metrics["total_session_seconds"]
+    detected = metrics["total_detected_seconds"]
+
+    face_absence_duration = max(0, total_session - detected)
+
+    # --------------------
+    # Rule 1
+    # --------------------
+    penalty += face_absent * 2
+
+    # --------------------
+    # Rule 2
+    # --------------------
+    penalty += browser_lost * 3
+
+    # --------------------
+    # Rule 3
+    # --------------------
+    if face_absence_duration > 10:
+        penalty += 5
+
+    if face_absence_duration > 30:
+        penalty += 10
+
+    # --------------------
+    # Rule 4
+    # --------------------
+    if face_absent >= 5:
+        penalty += 5
+
+    # --------------------
+    # Rule 5
+    # --------------------
+    if browser_lost >= 5:
+        penalty += 10
+
+    score = max(0, 100 - penalty)
+
+    if score >= 90:
+        risk = "Excellent"
+
+    elif score >= 75:
+        risk = "Good"
+
+    elif score >= 50:
+        risk = "Suspicious"
+
+    elif score >= 25:
+        risk = "High Risk"
+
+    else:
+        risk = "Very High Risk"
+
+    return score, penalty, risk
 
 @app.before_request
 def initialize_system():
@@ -201,27 +277,73 @@ def update_session(action):
         return redirect('/exam')
 
     elif action == 'end' and existing:
-        s_id = existing['session_id']
-        metrics = face_monitor.stop_monitoring_session()
-        
-        cursor.execute('''
-            UPDATE Session 
-            SET status = ?, end_time = ?, face_absent_count = ?, 
-                total_detected_seconds = ?, total_session_seconds = ?
-            WHERE session_id = ?
-        ''', ('Completed', now_str, metrics['absence_count'], 
-              metrics['total_detected_seconds'], metrics['total_session_seconds'], s_id))
-        conn.commit()
 
-        log_event(c_id, 'Exam Session Submitted', now_str, 
-                  f"Exam session finished. Total Absences: {metrics['absence_count']}, Face Detected: {metrics['total_detected_seconds']}s", 
-                  session_id=s_id)
-        flash("Exam session completed and saved.")
-        conn.close()
-        return redirect(f'/session_summary/{s_id}')
+        s_id = existing['session_id']
+
+    metrics = face_monitor.stop_monitoring_session()
+
+    cursor.execute("""
+        UPDATE Session
+        SET status=?,
+            end_time=?,
+            face_absent_count=?,
+            total_detected_seconds=?,
+            total_session_seconds=?
+        WHERE session_id=?
+    """, (
+        'Completed',
+        now_str,
+        metrics['absence_count'],
+        metrics['total_detected_seconds'],
+        metrics['total_session_seconds'],
+        s_id
+    ))
+
+    conn.commit()
+
+    # -------------------------
+    # Calculate Integrity Score
+    # -------------------------
+
+    score, penalty, risk = calculate_integrity_score(s_id, metrics)
+
+    cursor.execute("""
+        UPDATE Session
+        SET integrity_score=?,
+            total_penalty=?,
+            risk_level=?
+        WHERE session_id=?
+    """, (
+        score,
+        penalty,
+        risk,
+        s_id
+    ))
+
+    conn.commit()
+
+    log_event(
+        c_id,
+        "Integrity Score Calculated",
+        now_str,
+        f"Score={score}, Penalty={penalty}, Risk={risk}",
+        session_id=s_id
+    )
+
+    log_event(
+        c_id,
+        "Exam Session Submitted",
+        now_str,
+        f"Integrity Score={score}",
+        session_id=s_id
+    )
+
+    flash("Exam completed successfully.")
 
     conn.close()
-    return redirect('/dashboard')
+
+    return redirect(f"/session_summary/{s_id}")
+
 
 @app.route('/session_summary/<session_id>')
 def session_summary(session_id):
@@ -231,7 +353,8 @@ def session_summary(session_id):
     candidate = get_candidate_by_id(session['candidate_id'])
     session_data = get_session_by_id(session_id)
     events = get_session_events(session_id)
-
+    print(candidate)
+    print(session_data)
     return render_template('summary.html', candidate=candidate, session_data=session_data, events=events)
 
 @app.route('/export_csv/<session_id>')

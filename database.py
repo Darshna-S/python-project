@@ -41,6 +41,11 @@ def init_db():
             browser_focus_lost_count INTEGER DEFAULT 0,
             total_detected_seconds REAL DEFAULT 0.0,
             total_session_seconds REAL DEFAULT 0.0,
+
+            integrity_score INTEGER DEFAULT 100,
+            total_penalty INTEGER DEFAULT 0,
+            risk_level TEXT DEFAULT 'Excellent',
+
             FOREIGN KEY (candidate_id) REFERENCES Candidate (candidate_id)
         )
     ''')
@@ -143,6 +148,9 @@ def export_session_csv(session_id, output_filepath):
         writer.writerow(['Total Browser Focus Lost Count', session_data['browser_focus_lost_count']])
         writer.writerow(['Face Detected Time (Seconds)', f"{session_data['total_detected_seconds']:.1f}"])
         writer.writerow(['Total Session Time (Seconds)', f"{session_data['total_session_seconds']:.1f}"])
+        writer.writerow(['Integrity Score', session_data['integrity_score']])
+        writer.writerow(['Total Penalty', session_data['total_penalty']])
+        writer.writerow(['Risk Level', session_data['risk_level']])
         writer.writerow([])
         writer.writerow(['EVENT LOG CHRONOLOGY'])
         writer.writerow(['Log ID', 'Candidate ID', 'Session ID', 'Event Type', 'Timestamp', 'Remarks'])

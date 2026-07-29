@@ -108,6 +108,37 @@
             <div class="status-title">Current Exam Session Status</div>
             <div class="status-value">{{ status }}</div>
         </div>
+        <!--Statistics-->
+        {% if active_session %}
+        <div class="profile-grid">
+            <h3 style="margin-bottom:15px; color:#38bdf8;">Exam Statistics</h3>
+
+            <div class="profile-item">
+                <span>Face Absent Count:</span>
+                <strong>{{ active_session.face_absent_count }}</strong>
+            </div>
+
+        <div class="profile-item">
+            <span>Browser Focus Lost:</span>
+            <strong>{{ active_session.browser_focus_lost_count }}</strong>
+        </div>
+
+        <div class="profile-item">
+            <span>Integrity Score:</span>
+            <strong style="color:#22c55e;">
+                {{ active_session.integrity_score if active_session.integrity_score is not none else "Not Calculated" }}
+            </strong>
+        </div>
+
+        <div class="profile-item">
+            <span>Risk Level:</span>
+            <strong>
+                {{ active_session.risk_level if active_session.risk_level else "Not Available" }}
+            </strong>
+        </div>
+
+    </div>
+    {% endif %}
 
         <!-- Single Toggle Button Action Bar -->
         <div class="actions">

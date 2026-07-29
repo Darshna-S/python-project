@@ -70,23 +70,102 @@
         </div>
 
         <div class="grid">
-            <div class="metric-card">
-                <div class="metric-title">Candidate ID</div>
-                <div class="metric-value">{{ candidate.candidate_id }}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-title">Face Absent Count</div>
-                <div class="metric-value" style="color:#f43f5e;">{{ session_data.face_absent_count }}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-title">Browser Focus Lost</div>
-                <div class="metric-value" style="color:#fbbf24;">{{ session_data.browser_focus_lost_count }}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-title">Face Present Time</div>
-                <div class="metric-value" style="color:#34d399;">{{ session_data.total_detected_seconds }}s</div>
-            </div>
+    <div class="metric-card">
+        <div class="metric-title">Candidate ID</div>
+        <div class="metric-value">{{ session_data.candidate_id }}</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-title">Face Absent Count</div>
+        <div class="metric-value" style="color:#f43f5e;">
+            {{ session_data.face_absent_count }}
         </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-title">Browser Focus Lost</div>
+        <div class="metric-value" style="color:#fbbf24;">
+            {{ session_data.browser_focus_lost_count }}
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-title">Face Present Time</div>
+        <div class="metric-value" style="color:#34d399;">
+            {{ session_data.total_detected_seconds }} s
+        </div>
+    </div>
+
+    <!-- Integrity Score -->
+    <div class="metric-card">
+        <div class="metric-title">Integrity Score</div>
+
+        {% if session_data.integrity_score >= 90 %}
+            <div class="metric-value" style="color:#22c55e;">
+                {{ session_data.integrity_score }}/100
+            </div>
+
+        {% elif session_data.integrity_score >= 75 %}
+            <div class="metric-value" style="color:#84cc16;">
+                {{ session_data.integrity_score }}/100
+            </div>
+
+        {% elif session_data.integrity_score >= 50 %}
+            <div class="metric-value" style="color:#facc15;">
+                {{ session_data.integrity_score }}/100
+            </div>
+
+        {% elif session_data.integrity_score >= 25 %}
+            <div class="metric-value" style="color:#f97316;">
+                {{ session_data.integrity_score }}/100
+            </div>
+
+        {% else %}
+            <div class="metric-value" style="color:#ef4444;">
+                {{ session_data.integrity_score }}/100
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Total Penalty -->
+    <div class="metric-card">
+        <div class="metric-title">Total Penalty</div>
+        <div class="metric-value" style="color:#ef4444;">
+            -{{ session_data.total_penalty }}
+        </div>
+    </div>
+
+    <!-- Risk Level -->
+    <div class="metric-card">
+        <div class="metric-title">Risk Level</div>
+
+        {% if session_data.risk_level == "Excellent" %}
+            <div class="metric-value" style="color:#22c55e;">
+                {{ session_data.risk_level }}
+            </div>
+
+        {% elif session_data.risk_level == "Good" %}
+            <div class="metric-value" style="color:#84cc16;">
+                {{ session_data.risk_level }}
+            </div>
+
+        {% elif session_data.risk_level == "Suspicious" %}
+            <div class="metric-value" style="color:#facc15;">
+                {{ session_data.risk_level }}
+            </div>
+
+        {% elif session_data.risk_level == "High Risk" %}
+            <div class="metric-value" style="color:#f97316;">
+                {{ session_data.risk_level }}
+            </div>
+
+        {% else %}
+            <div class="metric-value" style="color:#ef4444;">
+                {{ session_data.risk_level }}
+            </div>
+        {% endif %}
+    </div>
+</div>
 
         <div class="section-title">SQLite Event Chronology Log</div>
         <div class="table-responsive">
