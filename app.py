@@ -26,7 +26,9 @@ def calculate_integrity_score(session_id, metrics):
 
     row = conn.execute("""
         SELECT face_absent_count,
-               browser_focus_lost_count
+       browser_focus_lost_count,
+       tab_switch_count,
+       multiple_face_count
         FROM Session
         WHERE session_id=?
     """, (session_id,)).fetchone()
@@ -38,25 +40,18 @@ def calculate_integrity_score(session_id, metrics):
 
     face_absent = row["face_absent_count"]
     browser_lost = row["browser_focus_lost_count"]
+    tab_switch = row["tab_switch_count"]
+    multiple_face = row["multiple_face_count"]
 
     total_session = metrics["total_session_seconds"]
     detected = metrics["total_detected_seconds"]
 
     face_absence_duration = max(0, total_session - detected)
 
-    # --------------------
-    # Rule 1
-    # --------------------
-    penalty += face_absent * 2
-
-    # --------------------
-    # Rule 2
-    # --------------------
-    penalty += browser_lost * 3
-
-    # --------------------
-    # Rule 3
-    # --------------------
+    penalty += face_absent * 5
+    penalty += browser_lost * 10
+    penalty += tab_switch * 10
+    penalty += multiple_face * 15
     if face_absence_duration > 10:
         penalty += 5
 
@@ -191,9 +186,22 @@ def dashboard():
         'SELECT * FROM Session WHERE candidate_id = ? ORDER BY start_time DESC LIMIT 1',
         (session['candidate_id'],)
     ).fetchone()
-    conn.close()
+    
 
-    return render_template('dashboard.html', candidate=candidate, active_session=active_session)
+    events=[]
+
+    if active_session:
+
+        events = conn.execute("""
+SELECT *
+FROM EventLog
+WHERE session_id = ?
+ORDER BY id DESC
+LIMIT 20
+""", (active_session["session_id"],)).fetchall()
+
+    return render_template('dashboard.html',candidate=candidate,active_session=active_session,events=events)
+
 
 @app.route('/exam')
 def exam():
@@ -224,7 +232,49 @@ def api_log_event():
     
     if event_type == 'Browser Focus Lost' and s_id:
         conn = get_db_connection()
-        conn.execute('UPDATE Session SET browser_focus_lost_count = browser_focus_lost_count + 1 WHERE session_id = ?', (s_id,))
+        if s_id:
+
+            conn = get_db_connection()
+
+    if event_type == "Browser Focus Lost":
+
+        conn.execute("""
+        UPDATE Session
+        SET browser_focus_lost_count =
+        browser_focus_lost_count + 1
+        WHERE session_id=?
+        """,(s_id,))
+
+    elif event_type == "Browser Tab Switch":
+
+        conn.execute("""
+        UPDATE Session
+        SET tab_switch_count =
+        tab_switch_count + 1
+        WHERE session_id=?
+        """,(s_id,))
+
+    elif event_type == "Multiple Face Detected":
+
+        conn.execute("""
+        UPDATE Session
+        SET multiple_face_count =
+        multiple_face_count + 1
+        WHERE session_id=?
+        """,(s_id,))
+
+    elif event_type == "Face Not Detected":
+
+        conn.execute("""
+        UPDATE Session
+        SET face_absent_count =
+        face_absent_count + 1
+        WHERE session_id=?
+        """,(s_id,))
+
+        conn.execute("""
+        UPDATE Session SET suspicious_event_count =face_absent_count +browser_focus_lost_count +tab_switch_count +multiple_face_countWHERE session_id=?""",(s_id,))
+
         conn.commit()
         conn.close()
 
@@ -248,9 +298,7 @@ def update_session(action):
         s_id = str(uuid.uuid4())[:8]
         session['active_session_id'] = s_id
         cursor.execute(
-            'INSERT INTO Session (session_id, candidate_id, start_time, status) VALUES (?, ?, ?, ?)',
-            (s_id, c_id, now_str, 'Ongoing')
-        )
+            'INSERT INTO Session(session_id,candidate_id,start_time,status,face_absent_count,browser_focus_lost_count,tab_switch_count,multiple_face_count,suspicious_event_count,integrity_score,total_penalty)VALUES(?,?,?,?,0,0,0,0,0,100,0)',(s_id, c_id, now_str, 'Ongoing'))
         conn.commit()
         face_monitor.start_monitoring_session(s_id, c_id)
         log_event(c_id, 'Exam Session Started', now_str, 'Candidate initiated proctored exam session.', session_id=s_id)
@@ -306,16 +354,34 @@ def update_session(action):
     # -------------------------
 
     score, penalty, risk = calculate_integrity_score(s_id, metrics)
+    cursor.execute("""
+SELECT
+    face_absent_count,
+    browser_focus_lost_count,
+    tab_switch_count,
+    multiple_face_count
+FROM Session
+WHERE session_id = ?
+""", (s_id,))
+
+    row=  cursor.fetchone()
+
+    suspicious=row["face_absent_count"] + \
+           row["browser_focus_lost_count"] + \
+           row["tab_switch_count"] + \
+           row["multiple_face_count"]
 
     cursor.execute("""
         UPDATE Session
         SET integrity_score=?,
             total_penalty=?,
+            suspicious_event_count=?,
             risk_level=?
         WHERE session_id=?
     """, (
         score,
         penalty,
+        suspicious,
         risk,
         s_id
     ))

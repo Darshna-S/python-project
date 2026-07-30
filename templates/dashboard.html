@@ -118,17 +118,57 @@
                 <strong>{{ active_session.face_absent_count }}</strong>
             </div>
 
-        <div class="profile-item">
-            <span>Browser Focus Lost:</span>
-            <strong>{{ active_session.browser_focus_lost_count }}</strong>
-        </div>
+            <div class="profile-item">
+                <span>Browser Focus Lost:</span>
+                <strong>{{ active_session.browser_focus_lost_count }}</strong>
+            </div>
+            <div class="profile-item">
+    <span>Tab Switch Count:</span>
+    <strong>{{ active_session.tab_switch_count | default(0,true) }}</strong>
+</div>
 
-        <div class="profile-item">
-            <span>Integrity Score:</span>
-            <strong style="color:#22c55e;">
-                {{ active_session.integrity_score if active_session.integrity_score is not none else "Not Calculated" }}
-            </strong>
-        </div>
+<div class="profile-item">
+    <span>Multiple Face Detected:</span>
+    <strong>{{ active_session.multiple_face_count | default(0,true) }}</strong>
+</div>
+
+<div class="profile-item">
+    <span>Suspicious Events:</span>
+    <strong style="color:#f59e0b;">
+        {{ active_session.suspicious_event_count | default(0,true) }}
+    </strong>
+</div>
+
+<div class="profile-item">
+    <span>Total Penalty:</span>
+    <strong style="color:#ef4444;">
+        {{ active_session.total_penalty }}
+    </strong>
+</div>
+
+            <div class="profile-item">
+                <span>Integrity Score</span>
+                {% set score = active_session.integrity_score if active_session and active_session.integrity_score is not none else 0 %}
+                <div style="width: 99%; background:#334155; height:18px; border-radius:10px; margin-top:8px;">
+                    {% set score = active_session.integrity_score|default(100,true)|int %}
+
+<div style="width:100%; background:#334155; height:18px; border-radius:10px;">
+    <div id="scoreBar"
+         style="height:18px; background:#22c55e; border-radius:10px;">
+    </div>
+</div>
+
+<strong>{{ score }}%</strong>
+
+<script>
+document.getElementById("scoreBar").style.width = "{{ score }}%";
+</script>
+                </div>
+                <strong style="font-size:22px; color:#22c55e;">
+                    {{ score }}%
+                </strong>
+            </div>
+
 
         <div class="profile-item">
             <span>Risk Level:</span>
@@ -161,6 +201,37 @@
                 <a href="/session_summary/{{ active_session.session_id }}" class="btn btn-summary">📊 View Session Report</a>
             {% endif %}
         </div>
+        **{% if events is defined and events %}**
+
+<div class="profile-grid" style="margin-top:30px;">
+
+<h3 style="margin-bottom:15px;color:#38bdf8;">
+Recent Suspicious Activity
+</h3>
+
+<table style="width:100%;border-collapse:collapse;">
+
+<tr style="background:#1e293b;">
+<th style="padding:10px;">Time</th>
+<th>Event</th>
+<th>Penalty</th>
+</tr>
+
+{% for e in events %}
+
+<tr style="border-bottom:1px solid #334155;">
+<td style="padding:10px;">{{ e.timestamp }}</td>
+<td>{{ e.event_type }}</td>
+<td style="color:#ef4444;">-{{ e.penalty }}</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+{% endif %}
     </div>
 </body>
 </html>

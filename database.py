@@ -37,8 +37,14 @@ def init_db():
             start_time TEXT NOT NULL,
             end_time TEXT,
             status TEXT NOT NULL,
+
             face_absent_count INTEGER DEFAULT 0,
             browser_focus_lost_count INTEGER DEFAULT 0,
+            tab_switch_count INTEGER DEFAULT 0,
+            multiple_face_count INTEGER DEFAULT 0,
+            suspicious_event_count INTEGER DEFAULT 0,
+            penalty INTEGER DEFAULT 0,
+
             total_detected_seconds REAL DEFAULT 0.0,
             total_session_seconds REAL DEFAULT 0.0,
 
@@ -46,9 +52,11 @@ def init_db():
             total_penalty INTEGER DEFAULT 0,
             risk_level TEXT DEFAULT 'Excellent',
 
-            FOREIGN KEY (candidate_id) REFERENCES Candidate (candidate_id)
+            FOREIGN KEY (candidate_id)
+            REFERENCES Candidate(candidate_id)
         )
     ''')
+            
     
     # 3. Event Logging Table
     cursor.execute('''
@@ -56,24 +64,68 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT,
             candidate_id TEXT NOT NULL,
+
             event_type TEXT NOT NULL,
             timestamp TEXT NOT NULL,
+
+            penalty INTEGER DEFAULT 0,
+
             remarks TEXT,
-            FOREIGN KEY (candidate_id) REFERENCES Candidate (candidate_id)
+
+            FOREIGN KEY(candidate_id)
+            REFERENCES Candidate(candidate_id)
         )
     ''')
     
     conn.commit()
     conn.close()
 
-def log_event(candidate_id, event_type, timestamp, remarks, session_id=None):
-    """Inserts a proctoring or workflow event record into SQLite."""
+def log_event(candidate_id,
+              event_type,
+              timestamp,
+              remarks,
+              session_id=None):
+
+    penalty = 0
+
+    if event_type == "Face Not Detected":
+        penalty = 5
+
+    elif event_type == "Browser Focus Lost":
+        penalty = 10
+
+    elif event_type == "Browser Tab Switch":
+        penalty = 10
+
+    elif event_type == "Multiple Face Detected":
+        penalty = 15
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO EventLog (session_id, candidate_id, event_type, timestamp, remarks)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (session_id, candidate_id, event_type, timestamp, remarks))
+
+    cursor.execute(
+        '''
+        INSERT INTO EventLog
+        (
+            session_id,
+            candidate_id,
+            event_type,
+            timestamp,
+            penalty,
+            remarks
+        )
+        VALUES(?,?,?,?,?,?)
+        ''',
+        (
+            session_id,
+            candidate_id,
+            event_type,
+            timestamp,
+            penalty,
+            remarks
+        )
+    )
+
     conn.commit()
     conn.close()
 
@@ -146,6 +198,9 @@ def export_session_csv(session_id, output_filepath):
         writer.writerow(['Status', session_data['status']])
         writer.writerow(['Total Face Absent Count', session_data['face_absent_count']])
         writer.writerow(['Total Browser Focus Lost Count', session_data['browser_focus_lost_count']])
+        writer.writerow(['Total Tab Switch Count',session_data['tab_switch_count']])
+        writer.writerow(['Multiple Face Count',session_data['multiple_face_count']])      
+        writer.writerow(['Suspicious Event Count',session_data['suspicious_event_count']])
         writer.writerow(['Face Detected Time (Seconds)', f"{session_data['total_detected_seconds']:.1f}"])
         writer.writerow(['Total Session Time (Seconds)', f"{session_data['total_session_seconds']:.1f}"])
         writer.writerow(['Integrity Score', session_data['integrity_score']])
@@ -153,7 +208,7 @@ def export_session_csv(session_id, output_filepath):
         writer.writerow(['Risk Level', session_data['risk_level']])
         writer.writerow([])
         writer.writerow(['EVENT LOG CHRONOLOGY'])
-        writer.writerow(['Log ID', 'Candidate ID', 'Session ID', 'Event Type', 'Timestamp', 'Remarks'])
+        writer.writerow(['Log ID', 'Candidate ID', 'Session ID', 'Event Type','Penalty', 'Timestamp', 'Remarks'])
         
         for event in events:
             writer.writerow([
@@ -161,6 +216,7 @@ def export_session_csv(session_id, output_filepath):
                 event['candidate_id'],
                 event['session_id'] or '',
                 event['event_type'],
+                event['penalty'],
                 event['timestamp'],
                 event['remarks']
             ])
