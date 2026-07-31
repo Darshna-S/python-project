@@ -141,7 +141,7 @@ def register():
             
             log_event(c_id, 'Candidate Registered', now_str, f"Registered profile for {name} ({email}) with photo capture.")
             
-            flash("Registration successful! Please log in to continue.")
+            flash("Registration successful! Please log in to continue.","success")
             conn.close()
             return redirect('/login')
         except sqlite3.IntegrityError:
@@ -219,67 +219,74 @@ def monitoring_status():
 @app.route('/api/log_event', methods=['POST'])
 def api_log_event():
     if 'candidate_id' not in session:
-        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+        return jsonify({'status': 'error'}), 401
 
-    data = request.get_json() or {}
-    event_type = data.get('event_type', 'JS Event')
-    remarks = data.get('remarks', '')
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    c_id = session['candidate_id']
-    s_id = session.get('active_session_id')
+    data = request.get_json()
 
-    log_event(c_id, event_type, now_str, remarks, session_id=s_id)
-    
-    if event_type == 'Browser Focus Lost' and s_id:
+    event_type = data.get("event_type")
+    remarks = data.get("remarks", "")
+
+    c_id = session["candidate_id"]
+    s_id = session.get("active_session_id")
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    log_event(c_id, event_type, now, remarks, session_id=s_id)
+
+    if s_id:
+
         conn = get_db_connection()
-        if s_id:
 
-            conn = get_db_connection()
+        if event_type == "Browser Focus Lost":
 
-    if event_type == "Browser Focus Lost":
+            conn.execute("""
+            UPDATE Session
+            SET browser_focus_lost_count =
+            browser_focus_lost_count + 1
+            WHERE session_id=?
+            """, (s_id,))
+
+        elif event_type == "Browser Tab Switch":
+
+            conn.execute("""
+            UPDATE Session
+            SET tab_switch_count =
+            tab_switch_count + 1
+            WHERE session_id=?
+            """, (s_id,))
+
+        elif event_type == "Multiple Face Detected":
+
+            conn.execute("""
+            UPDATE Session
+            SET multiple_face_count =
+            multiple_face_count + 1
+            WHERE session_id=?
+            """, (s_id,))
+
+        elif event_type == "Face Not Detected":
+
+            conn.execute("""
+            UPDATE Session
+            SET face_absent_count =
+            face_absent_count + 1
+            WHERE session_id=?
+            """, (s_id,))
 
         conn.execute("""
         UPDATE Session
-        SET browser_focus_lost_count =
-        browser_focus_lost_count + 1
+        SET suspicious_event_count =
+            face_absent_count +
+            browser_focus_lost_count +
+            tab_switch_count +
+            multiple_face_count
         WHERE session_id=?
-        """,(s_id,))
-
-    elif event_type == "Browser Tab Switch":
-
-        conn.execute("""
-        UPDATE Session
-        SET tab_switch_count =
-        tab_switch_count + 1
-        WHERE session_id=?
-        """,(s_id,))
-
-    elif event_type == "Multiple Face Detected":
-
-        conn.execute("""
-        UPDATE Session
-        SET multiple_face_count =
-        multiple_face_count + 1
-        WHERE session_id=?
-        """,(s_id,))
-
-    elif event_type == "Face Not Detected":
-
-        conn.execute("""
-        UPDATE Session
-        SET face_absent_count =
-        face_absent_count + 1
-        WHERE session_id=?
-        """,(s_id,))
-
-        conn.execute("""
-        UPDATE Session SET suspicious_event_count =face_absent_count +browser_focus_lost_count +tab_switch_count +multiple_face_countWHERE session_id=?""",(s_id,))
+        """, (s_id,))
 
         conn.commit()
         conn.close()
 
-    return jsonify({'status': 'success'})
-
+    return jsonify({"status":"success"})
 @app.route('/update_session/<action>')
 def update_session(action):
     if 'candidate_id' not in session:

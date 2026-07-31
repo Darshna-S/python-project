@@ -35,6 +35,8 @@ class FaceMonitor:
         self.detection_start = None
         self.session_start_time = None
         self.camera = None
+        self.multiple_face_logged = False
+        self.absence_screenshot_taken = False
         
     def start_monitoring_session(self, session_id, candidate_id):
         """Initializes state variables when an exam session starts."""
@@ -106,6 +108,7 @@ class FaceMonitor:
                 break
 
             success, frame = self.camera.read()
+            frame = cv2.resize(frame, (640, 480))
             if not success or frame is None:
                 break
                 
@@ -114,8 +117,10 @@ class FaceMonitor:
             
             faces = self.detect_faces_robust(frame)
             
-            if len(faces) > 0:
+            if len(faces) == 1:
                 self.face_present = True
+                self.multiple_face_logged = False
+                self.absence_screenshot_taken = False
                 self.warning_active = False
                 color = (0, 255, 0)
                 status_str = "Face Detected"
@@ -136,7 +141,32 @@ class FaceMonitor:
                 if self.detection_start is None:
                     self.detection_start = time.time()
                 current_detection_duration = self.total_detected_time + (time.time() - self.detection_start)
-                
+            elif len(faces) > 1:
+
+                self.face_present = True
+                self.warning_active = True
+
+                color = (0, 0, 255)
+                status_str = "MULTIPLE FACES"
+
+                for (x, y, w, h) in faces:
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+
+                if not self.multiple_face_logged:
+
+                    if db_log_callback and self.active_candidate_id:
+                        db_log_callback(
+                            candidate_id=self.active_candidate_id,
+                            event_type="Multiple Face Detected",
+                            timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
+                            remarks=f"{len(faces)} faces detected",
+                            session_id=self.active_session_id
+                        )
+
+                    self.multiple_face_logged = True
+
+                current_detection_duration = self.total_detected_time
+                            
             else:
                 self.face_present = False
                 color = (0, 0, 255)
@@ -154,7 +184,15 @@ class FaceMonitor:
                     # Capture screenshot when face leaves frame
                     screenshot_name = f"absence_{self.active_candidate_id or 'cand'}_{int(current_time.timestamp())}_count{self.absence_count}.jpg"
                     screenshot_path = os.path.join(self.absence_dir, screenshot_name)
-                    cv2.imwrite(screenshot_path, frame)
+                    if not self.absence_screenshot_taken:
+
+                        cv2.imwrite(
+                            screenshot_path,
+                            frame,
+                            [cv2.IMWRITE_JPEG_QUALITY, 95]
+                        )
+
+                        self.absence_screenshot_taken = True
                     
                     if db_log_callback and self.active_candidate_id:
                         db_log_callback(
@@ -184,6 +222,15 @@ class FaceMonitor:
             cv2.putText(frame, f"Status: {status_str}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
             cv2.putText(frame, f"Time: {timestamp_str}", (20, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
             cv2.putText(frame, f"Absence Duration: {self.absence_duration:.1f}s", (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            cv2.putText(
+    frame,
+    f"Faces: {len(faces)}",
+    (20, 215),
+    cv2.FONT_HERSHEY_SIMPLEX,
+    0.6,
+    (255, 255, 255),
+    2
+)
             cv2.putText(frame, f"Total Detected: {current_detection_duration:.1f}s", (20, 145), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 128, 0), 2)
             cv2.putText(frame, f"Absence Count: {self.absence_count}", (20, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 255), 2)
             
@@ -198,9 +245,13 @@ class FaceMonitor:
                    
     def capture_registration_photo(self, candidate_id):
         """Grabs a single quick photo frame for registration profile if camera is opened."""
-        cam = cv2.VideoCapture(0)
-        success, frame = cam.read()
-        cam.release()
+        
+
+        self.camera = cv2.VideoCapture(0)
+
+
+        success, frame = self.camera.read()
+        self.camera.release()
             
         if success and frame is not None:
             filename = f"{candidate_id}_reg_{int(datetime.now().timestamp())}.jpg"

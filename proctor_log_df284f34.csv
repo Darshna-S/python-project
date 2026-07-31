@@ -1,0 +1,67 @@
+==========================================
+AUTOMATED PROCTORING SESSION LOG REPORT
+==========================================
+Report Generated At,2026-07-31 21:53:15
+
+CANDIDATE DETAILS
+Candidate ID,C001
+Full Name,DARSHNA S
+Email Address,darshnas.25aid@kongu.edu
+Registration Photo Path,c:\Users\HP\Desktop\git folder\python-project\photos\C001_reg_1785429327.jpg
+
+SESSION METRICS SUMMARY
+Session ID,df284f34
+Start Time,2026-07-31 21:51:49
+End Time,2026-07-31 21:53:05
+Status,Completed
+Total Face Absent Count,13
+Total Browser Focus Lost Count,6
+Total Tab Switch Count,4
+Multiple Face Count,0
+Suspicious Event Count,23
+Face Detected Time (Seconds),52.2
+Total Session Time (Seconds),76.0
+Integrity Score,0
+Total Penalty,165
+Risk Level,Very High Risk
+
+EVENT LOG CHRONOLOGY
+Log ID,Candidate ID,Session ID,Event Type,Penalty,Timestamp,Remarks
+92,C001,df284f34,Exam Session Started,0,2026-07-31 21:51:49,Candidate initiated proctored exam session.
+93,C001,df284f34,Browser Focus Lost,10,2026-07-31 21:51:56,Candidate switched away from exam window
+94,C001,df284f34,Browser Tab Switch,10,2026-07-31 21:51:56,Candidate switched browser tab
+95,C001,df284f34,Browser Focus Lost,10,2026-07-31 21:52:03,Candidate switched away from exam window
+96,C001,df284f34,Browser Tab Switch,10,2026-07-31 21:52:03,Candidate switched browser tab
+97,C001,df284f34,Browser Focus Lost,10,2026-07-31 21:52:06,Candidate switched away from exam window
+98,C001,df284f34,Browser Tab Switch,10,2026-07-31 21:52:06,Candidate switched browser tab
+99,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:06,2 faces detected
+100,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:06,Candidate face lost (Absence #1). Screenshot captured: absence_C001_1785514926_count1.jpg
+101,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:30,Candidate face lost (Absence #2). Screenshot captured: absence_C001_1785514950_count2.jpg
+102,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:31,Candidate face lost (Absence #3). Screenshot captured: absence_C001_1785514951_count3.jpg
+103,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:32,2 faces detected
+104,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:33,2 faces detected
+105,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:33,2 faces detected
+106,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:33,2 faces detected
+107,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:38,2 faces detected
+108,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:39,Candidate face lost (Absence #4). Screenshot captured: absence_C001_1785514959_count4.jpg
+109,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:39,Candidate face lost (Absence #5). Screenshot captured: absence_C001_1785514959_count5.jpg
+110,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:41,Candidate face lost (Absence #6). Screenshot captured: absence_C001_1785514961_count6.jpg
+111,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:41,2 faces detected
+112,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:43,Candidate face lost (Absence #7). Screenshot captured: absence_C001_1785514963_count7.jpg
+113,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:47,2 faces detected
+114,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:47,2 faces detected
+115,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:50,Candidate face lost (Absence #8). Screenshot captured: absence_C001_1785514970_count8.jpg
+116,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:52,2 faces detected
+117,C001,df284f34,Multiple Face Detected,15,2026-07-31 21:52:53,2 faces detected
+118,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:53,Candidate face lost (Absence #9). Screenshot captured: absence_C001_1785514973_count9.jpg
+119,C001,df284f34,Browser Focus Lost,10,2026-07-31 21:52:54,Candidate switched away from exam window
+120,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:54,Candidate face lost (Absence #10). Screenshot captured: absence_C001_1785514974_count10.jpg
+121,C001,df284f34,Face Not Detected,5,2026-07-31 21:52:55,Candidate face lost (Absence #11). Screenshot captured: absence_C001_1785514975_count11.jpg
+122,C001,df284f34,Face Warning Triggered,0,2026-07-31 21:53:00,CRITICAL WARNING: Candidate face missing for 5.0 seconds!
+123,C001,df284f34,Face Not Detected,5,2026-07-31 21:53:01,Candidate face lost (Absence #12). Screenshot captured: absence_C001_1785514981_count12.jpg
+124,C001,df284f34,Face Not Detected,5,2026-07-31 21:53:02,Candidate face lost (Absence #13). Screenshot captured: absence_C001_1785514982_count13.jpg
+125,C001,df284f34,Browser Focus Lost,10,2026-07-31 21:53:05,Candidate switched away from exam window
+126,C001,df284f34,Integrity Score Calculated,0,2026-07-31 21:53:05,"Score=0, Penalty=165, Risk=Very High Risk"
+127,C001,df284f34,Exam Session Submitted,0,2026-07-31 21:53:05,Integrity Score=0
+128,C001,df284f34,Browser Focus Lost,10,2026-07-31 21:53:05,Candidate switched away from exam window
+129,C001,df284f34,Browser Tab Switch,10,2026-07-31 21:53:05,Candidate switched browser tab

@@ -95,14 +95,15 @@
         }
         .webcam-card h4 { font-size: 14px; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; }
         .webcam-stream {
-            width: 100%;
-            border-radius: 8px;
-            border: 2px solid #334155;
-            aspect-ratio: 4/3;
-            object-fit: cover;
-            background: #000;
+        width: 300px;
+        height: 220px;
+        border-radius: 8px;
+        border: 2px solid #334155;
+        object-fit: cover;
+        background: #000;
+        display: block;
+        margin: auto;
         }
-
         .status-card {
             background: #1e293b;
             border-radius: 12px;
@@ -226,24 +227,45 @@
         }
 
         // Browser Focus / Blur Event Listeners
-        window.onblur = function() {
-            browserStatusBadge.innerText = 'Inactive';
-            browserStatusBadge.className = 'badge badge-red';
-            sendLogEvent('Browser Focus Lost', 'Candidate switched away from the exam tab/window');
-        };
+                window.addEventListener("blur", function () {
 
-        window.onfocus = function() {
-            browserStatusBadge.innerText = 'Active';
-            browserStatusBadge.className = 'badge badge-green';
-            sendLogEvent('Browser Focus Regained', 'Candidate returned focus to the exam page');
-        };
+            browserStatusBadge.innerText = "Focus Lost";
+            browserStatusBadge.className = "badge badge-red";
 
-        document.addEventListener('visibilitychange', function() {
+            sendLogEvent(
+                "Browser Focus Lost",
+                "Candidate switched away from exam window"
+            );
+
+        });
+
+        window.addEventListener("focus", function () {
+
+            browserStatusBadge.innerText = "Active";
+            browserStatusBadge.className = "badge badge-green";
+
+        });
+
+        document.addEventListener("visibilitychange", function () {
+
             if (document.hidden) {
-                sendLogEvent('Tab Hidden', 'Exam page tab was hidden or minimized');
-            } else {
-                sendLogEvent('Tab Visible', 'Exam page tab became visible again');
+
+                browserStatusBadge.innerText = "Tab Switched";
+                browserStatusBadge.className = "badge badge-red";
+
+                sendLogEvent(
+                    "Browser Tab Switch",
+                    "Candidate switched browser tab"
+                );
+
             }
+            else{
+
+                browserStatusBadge.innerText="Active";
+                browserStatusBadge.className="badge badge-green";
+
+            }
+
         });
 
         // Poll Face Monitoring Status every 500ms
@@ -253,14 +275,18 @@
                 .then(data => {
                     absenceCountText.innerText = data.absence_count;
                     
-                    if (data.face_present) {
-                        faceStatusBadge.innerText = 'Face Present';
-                        faceStatusBadge.className = 'badge badge-green';
-                    } else {
-                        faceStatusBadge.innerText = 'Face Absent';
-                        faceStatusBadge.className = 'badge badge-red';
-                    }
+                                        if(data.face_present){
 
+                        faceStatusBadge.innerText="Face Present";
+                        faceStatusBadge.className="badge badge-green";
+
+                    }
+                    else{
+
+                        faceStatusBadge.innerText="Face Absent";
+                        faceStatusBadge.className="badge badge-red";
+
+                    }
                     if (data.warning_active) {
                         faceWarningBanner.style.display = 'block';
                     } else {
