@@ -57,6 +57,24 @@
             margin-top: 10px;
         }
         .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3); }
+        .btn-admin{
+            display:block;
+            width:100%;
+            margin-top:15px;
+            padding:14px;
+            text-align:center;
+            text-decoration:none;
+            background:linear-gradient(90deg,#2563eb,#1d4ed8);
+            color:white;
+            border-radius:8px;
+            font-weight:600;
+            transition:.3s;
+        }
+
+        .btn-admin:hover{
+            transform:translateY(-2px);
+            box-shadow:0 10px 20px rgba(37,99,235,.3);
+        }
         
         .flash { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; text-align: center; }
         .footer-link { text-align: center; margin-top: 25px; font-size: 14px; color: #94a3b8; }
@@ -90,6 +108,7 @@
             </div>
 
             <button type="submit" class="btn-submit">🔐 Sign In</button>
+            <a href="/admin" class="btn-admin">📊 Open Admin Dashboard</a>
         </form>
 
         <div class="footer-link">

@@ -1,13 +1,29 @@
 import os
 import uuid
 import sqlite3
+import cv2
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, flash, session, Response, jsonify, send_file
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    flash,
+    session,
+    Response,
+    jsonify,
+    send_file
+)
 
 from database import (
-    init_db, get_db_connection, log_event, 
-    get_candidate_by_email, get_candidate_by_id, 
-    get_session_by_id, get_session_events, export_session_csv
+    init_db,
+    get_db_connection,
+    log_event,
+    get_candidate_by_email,
+    get_candidate_by_id,
+    get_session_by_id,
+    get_session_events,
+    export_session_csv,
 )
 from face_monitor import FaceMonitor
 
@@ -17,6 +33,28 @@ app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 app.secret_key = "proctorguard_internship_milestone_secret_key"
 
 face_monitor = FaceMonitor(BASE_DIR)
+from flask import send_from_directory
+
+@app.route('/view_screenshot/<int:event_id>')
+def view_screenshot(event_id):
+
+    conn = get_db_connection()
+
+    event = conn.execute(
+        "SELECT screenshot_path FROM EventLog WHERE id=?",
+        (event_id,)
+    ).fetchone()
+
+    conn.close()
+
+    if not event:
+        return "Event not found", 404
+
+    if not event["screenshot_path"]:
+        return "Screenshot not found", 404
+
+    return send_file(event["screenshot_path"])
+
 def calculate_integrity_score(session_id, metrics):
     """
     Calculates Integrity Score based on session statistics.
@@ -100,7 +138,35 @@ def video_feed():
         face_monitor.generate_frames(db_log_callback=log_event), 
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
+@app.route("/api/integrity_score")
+def get_integrity_score():
 
+    if "candidate_id" not in session:
+        return jsonify({"score":100})
+
+    conn = get_db_connection()
+
+    row = conn.execute("""
+        SELECT integrity_score,total_penalty
+        FROM Session
+        WHERE candidate_id=?
+        AND status!='Completed'
+        ORDER BY start_time DESC
+        LIMIT 1
+    """,(session["candidate_id"],)).fetchone()
+
+    conn.close()
+
+    if row:
+        return jsonify({
+            "score":row["integrity_score"],
+            "penalty":row["total_penalty"]
+        })
+
+    return jsonify({
+        "score":100,
+        "penalty":0
+    })
 @app.route('/')
 def index():
     if 'candidate_id' in session:
@@ -199,10 +265,122 @@ WHERE session_id = ?
 ORDER BY id DESC
 LIMIT 20
 """, (active_session["session_id"],)).fetchall()
-
+    conn.close()
     return render_template('dashboard.html',candidate=candidate,active_session=active_session,events=events)
 
+@app.route("/admin")
+def admin():
 
+    conn = get_db_connection()
+
+    total_candidates = conn.execute(
+        "SELECT COUNT(*) FROM Candidate"
+    ).fetchone()[0]
+
+    active_sessions = conn.execute(
+        "SELECT COUNT(*) FROM Session WHERE status='Ongoing'"
+    ).fetchone()[0]
+
+    completed_sessions = conn.execute(
+        "SELECT COUNT(*) FROM Session WHERE status='Completed'"
+    ).fetchone()[0]
+
+    avg_score = conn.execute(
+        "SELECT ROUND(AVG(integrity_score),1) FROM Session"
+    ).fetchone()[0] or 0
+
+    total_events = conn.execute(
+        "SELECT COUNT(*) FROM EventLog"
+    ).fetchone()[0]
+
+    face_events = conn.execute(
+        "SELECT COUNT(*) FROM EventLog WHERE event_type='Face Not Detected'"
+    ).fetchone()[0]
+
+    browser_events = conn.execute(
+        "SELECT COUNT(*) FROM EventLog WHERE event_type='Browser Focus Lost'"
+    ).fetchone()[0]
+
+    highest_score = conn.execute(
+        "SELECT MAX(integrity_score) FROM Session"
+    ).fetchone()[0] or 0
+
+    lowest_score = conn.execute(
+        "SELECT MIN(integrity_score) FROM Session"
+    ).fetchone()[0] or 0
+
+    candidate_id = request.args.get("candidate_id", "")
+    event_type = request.args.get("event_type", "")
+    date = request.args.get("date", "")
+
+    query = "SELECT * FROM EventLog WHERE 1=1"
+    params = []
+
+    if candidate_id:
+        query += " AND candidate_id=?"
+        params.append(candidate_id)
+
+    if event_type:
+        query += " AND event_type=?"
+        params.append(event_type)
+
+    if date:
+        query += " AND date(timestamp)=?"
+        params.append(date)
+
+    query += " ORDER BY id DESC"
+
+    events = conn.execute(query, params).fetchall()
+
+    conn.close()
+
+    return render_template(
+        "admin_dashboard.html",
+        total_candidates=total_candidates,
+        active_sessions=active_sessions,
+        completed_sessions=completed_sessions,
+        avg_score=avg_score,
+        total_events=total_events,
+        face_events=face_events,
+        browser_events=browser_events,
+        highest_score=highest_score,
+        lowest_score=lowest_score,
+        events=events
+    )
+@app.route("/event_logs")
+def event_logs():
+
+    conn = get_db_connection()
+
+    candidate_id = request.args.get("candidate_id", "")
+    event_type = request.args.get("event_type", "")
+    date = request.args.get("date", "")
+
+    query = "SELECT * FROM EventLog WHERE 1=1"
+    values = []
+
+    if candidate_id:
+        query += " AND candidate_id=?"
+        values.append(candidate_id)
+
+    if event_type:
+        query += " AND event_type=?"
+        values.append(event_type)
+
+    if date:
+        query += " AND DATE(timestamp)=?"
+        values.append(date)
+
+    query += " ORDER BY timestamp DESC"
+
+    events = conn.execute(query, values).fetchall()
+
+    conn.close()
+
+    return render_template(
+        "event_logs.html",
+        events=events
+    )
 @app.route('/exam')
 def exam():
     if 'candidate_id' not in session:
@@ -215,7 +393,47 @@ def exam():
 def monitoring_status():
     status_data = face_monitor.get_current_status()
     return jsonify(status_data)
+@app.route('/api/live_score')
+def live_score():
 
+    if 'active_session_id' not in session:
+        return jsonify({"score": 100})
+
+    session_id = session['active_session_id']
+
+    conn = get_db_connection()
+
+    row = conn.execute("""
+        SELECT
+            face_absent_count,
+            browser_focus_lost_count,
+            tab_switch_count,
+            multiple_face_count
+        FROM Session
+        WHERE session_id=?
+    """, (session_id,)).fetchone()
+
+    conn.close()
+
+    if not row:
+        return jsonify({"score":100})
+
+    penalty = (
+        row["face_absent_count"] * 5 +
+        row["browser_focus_lost_count"] * 10 +
+        row["tab_switch_count"] * 10 +
+        row["multiple_face_count"] * 15
+    )
+
+    score = max(0, 100 - penalty)
+
+    return jsonify({
+        "score": score,
+        "face_absent": row["face_absent_count"],
+        "browser_lost": row["browser_focus_lost_count"],
+        "tab_switch": row["tab_switch_count"],
+        "multiple_face": row["multiple_face_count"]
+    })
 @app.route('/api/log_event', methods=['POST'])
 def api_log_event():
     if 'candidate_id' not in session:
@@ -230,61 +448,15 @@ def api_log_event():
     s_id = session.get("active_session_id")
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    screenshot_path = None
 
-    log_event(c_id, event_type, now, remarks, session_id=s_id)
+    if event_type == "Browser Focus Lost":
+        screenshot_path = face_monitor.capture_browser_screenshot()
+    log_event(c_id, event_type, now, remarks, session_id=s_id, screenshot_path=screenshot_path)
 
     if s_id:
-
-        conn = get_db_connection()
-
-        if event_type == "Browser Focus Lost":
-
-            conn.execute("""
-            UPDATE Session
-            SET browser_focus_lost_count =
-            browser_focus_lost_count + 1
-            WHERE session_id=?
-            """, (s_id,))
-
-        elif event_type == "Browser Tab Switch":
-
-            conn.execute("""
-            UPDATE Session
-            SET tab_switch_count =
-            tab_switch_count + 1
-            WHERE session_id=?
-            """, (s_id,))
-
-        elif event_type == "Multiple Face Detected":
-
-            conn.execute("""
-            UPDATE Session
-            SET multiple_face_count =
-            multiple_face_count + 1
-            WHERE session_id=?
-            """, (s_id,))
-
-        elif event_type == "Face Not Detected":
-
-            conn.execute("""
-            UPDATE Session
-            SET face_absent_count =
-            face_absent_count + 1
-            WHERE session_id=?
-            """, (s_id,))
-
-        conn.execute("""
-        UPDATE Session
-        SET suspicious_event_count =
-            face_absent_count +
-            browser_focus_lost_count +
-            tab_switch_count +
-            multiple_face_count
-        WHERE session_id=?
-        """, (s_id,))
-
-        conn.commit()
-        conn.close()
+        from database import update_live_integrity_score
+        update_live_integrity_score(s_id)
 
     return jsonify({"status":"success"})
 @app.route('/update_session/<action>')
@@ -335,9 +507,9 @@ def update_session(action):
 
         s_id = existing['session_id']
 
-    metrics = face_monitor.stop_monitoring_session()
+        metrics = face_monitor.stop_monitoring_session()
 
-    cursor.execute("""
+        cursor.execute("""
         UPDATE Session
         SET status=?,
             end_time=?,
@@ -443,7 +615,7 @@ def export_csv(session_id):
         return send_file(filepath, as_attachment=True, download_name=filename)
     else:
         flash("Error generating CSV export file.")
-        return redirect('/dashboard')
+        return redirect('/admin')
 
 @app.route('/logout')
 def logout():

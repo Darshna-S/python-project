@@ -1,3 +1,5 @@
+from fileinput import filename
+
 import cv2
 import os
 import time
@@ -99,7 +101,7 @@ class FaceMonitor:
     def generate_frames(self, db_log_callback=None):
         """Generates video frames for HTML video feed streaming."""
         if self.camera is None or not self.camera.isOpened():
-            self.camera = cv2.VideoCapture(0)
+            self.camera = cv2.VideoCapture(0, cv2.CAP_MSMF)
             
         event_logged_this_absence = False
         
@@ -144,7 +146,10 @@ class FaceMonitor:
             elif len(faces) > 1:
 
                 self.face_present = True
-                self.warning_active = True
+                self.absence_start = None
+                self.absence_duration = 0.0
+                self.warning_active = False
+                self.absence_screenshot_taken = False
 
                 color = (0, 0, 255)
                 status_str = "MULTIPLE FACES"
@@ -154,16 +159,34 @@ class FaceMonitor:
 
                 if not self.multiple_face_logged:
 
-                    if db_log_callback and self.active_candidate_id:
-                        db_log_callback(
-                            candidate_id=self.active_candidate_id,
-                            event_type="Multiple Face Detected",
-                            timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
-                            remarks=f"{len(faces)} faces detected",
-                            session_id=self.active_session_id
-                        )
+                    screenshot_name = f"multiple_faces_{int(time.time())}.jpg"
 
-                    self.multiple_face_logged = True
+                    candidate_folder = os.path.join(
+                    self.absence_dir,
+                    self.active_candidate_id or "Unknown"
+            )
+
+                    os.makedirs(candidate_folder, exist_ok=True)
+
+                    screenshot_path = os.path.join(
+                    candidate_folder,
+                    screenshot_name
+    )
+
+                    cv2.imwrite(screenshot_path, frame)
+
+                    if db_log_callback:
+                        db_log_callback(
+            candidate_id=self.active_candidate_id,
+            event_type="Multiple Faces Detected",
+            timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
+            remarks="More than one face detected.",
+            session_id=self.active_session_id,
+            screenshot_path=screenshot_path
+        )
+
+                self.multiple_face_logged = True
+
 
                 current_detection_duration = self.total_detected_time
                             
@@ -183,15 +206,24 @@ class FaceMonitor:
                     
                     # Capture screenshot when face leaves frame
                     screenshot_name = f"absence_{self.active_candidate_id or 'cand'}_{int(current_time.timestamp())}_count{self.absence_count}.jpg"
-                    screenshot_path = os.path.join(self.absence_dir, screenshot_name)
-                    if not self.absence_screenshot_taken:
+                    candidate_folder = os.path.join(
+                        self.absence_dir,
+                        self.active_candidate_id or "Unknown"
+                    )
+                    
+                    os.makedirs(candidate_folder, exist_ok=True)
+                    
+                    screenshot_path = os.path.join(
+                        candidate_folder,
+                        screenshot_name
+                    )
 
+                    if not self.absence_screenshot_taken:
                         cv2.imwrite(
                             screenshot_path,
                             frame,
                             [cv2.IMWRITE_JPEG_QUALITY, 95]
                         )
-
                         self.absence_screenshot_taken = True
                     
                     if db_log_callback and self.active_candidate_id:
@@ -200,7 +232,8 @@ class FaceMonitor:
                             event_type="Face Not Detected",
                             timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
                             remarks=f"Candidate face lost (Absence #{self.absence_count}). Screenshot captured: {screenshot_name}",
-                            session_id=self.active_session_id
+                            session_id=self.active_session_id,
+                            screenshot_path=screenshot_path
                         )
                         
                 self.absence_duration = time.time() - self.absence_start
@@ -214,7 +247,8 @@ class FaceMonitor:
                             event_type="Face Warning Triggered",
                             timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
                             remarks=f"CRITICAL WARNING: Candidate face missing for {self.absence_duration:.1f} seconds!",
-                            session_id=self.active_session_id
+                            session_id=self.active_session_id,
+                            screenshot_path=screenshot_path
                         )
                         event_logged_this_absence = True
 
@@ -244,27 +278,107 @@ class FaceMonitor:
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
                    
     def capture_registration_photo(self, candidate_id):
-        """Grabs a single quick photo frame for registration profile if camera is opened."""
-        
+        """Capture registration photo."""
+        cam = cv2.VideoCapture(0)
 
-        self.camera = cv2.VideoCapture(0)
+        if not cam.isOpened():
+            return ""
 
+        success, frame = cam.read()
 
-        success, frame = self.camera.read()
-        self.camera.release()
-            
+        cam.release()
+
         if success and frame is not None:
             filename = f"{candidate_id}_reg_{int(datetime.now().timestamp())}.jpg"
             photo_path = os.path.join(self.photos_dir, filename)
             cv2.imwrite(photo_path, frame)
             return photo_path
+
         return ""
-        
+
+    def capture_browser_screenshot(self):
+
+        if self.camera is None or not self.camera.isOpened():
+            return None
+
+        success, frame = self.camera.read()
+
+        if not success:
+            return None
+
+        candidate_folder = os.path.join(
+            self.absence_dir,
+            self.active_candidate_id
+        )
+
+        os.makedirs(candidate_folder, exist_ok=True)
+
+        filename = f"browser_focus_lost_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+
+        filepath = os.path.join(candidate_folder, filename)
+
+        cv2.imwrite(filepath, frame)
+
+        return filepath    
     def get_current_status(self):
+
+        integrity_score = 100
+        browser_focus_lost = 0
+        risk_level = "Excellent"
+
+        if self.active_session_id:
+
+            from database import get_db_connection
+
+            conn = get_db_connection()
+
+            session = conn.execute("""
+            SELECT integrity_score,
+                   browser_focus_lost_count,
+                   risk_level
+            FROM Session
+            WHERE session_id=?
+        """, (self.active_session_id,)).fetchone()
+
+        conn.close()
+
+        if session:
+            integrity_score = session["integrity_score"]
+            browser_focus_lost = session["browser_focus_lost_count"]
+            risk_level = session["risk_level"]
+
         return {
-            'face_present': self.face_present,
-            'absence_duration': round(self.absence_duration, 1),
-            'absence_count': self.absence_count,
-            'warning_active': self.warning_active,
-            'total_detected_time': round(self.total_detected_time, 1)
-        }
+        "face_present": self.face_present,
+        "absence_duration": round(self.absence_duration,1),
+        "absence_count": self.absence_count,
+        "warning_active": self.warning_active,
+        "total_detected_time": round(self.total_detected_time,1),
+
+        "integrity_score": integrity_score,
+        "browser_focus_lost_count": browser_focus_lost,
+        "risk_level": risk_level
+    }
+    def capture_browser_screenshot(self):
+
+        if self.camera is None or not self.camera.isOpened():
+            self.camera = cv2.VideoCapture(0)
+
+        success, frame = self.camera.read()
+
+        if not success:
+            return None
+
+        candidate_folder = os.path.join(
+            self.absence_dir,
+            self.active_candidate_id or "Unknown"
+    )
+
+        os.makedirs(candidate_folder, exist_ok=True)
+
+        filename = f"browser_focus_lost_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+
+        filepath = os.path.join(candidate_folder, filename)
+
+        cv2.imwrite(filepath, frame)
+
+        return filepath

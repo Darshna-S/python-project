@@ -64,13 +64,13 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT,
             candidate_id TEXT NOT NULL,
-
             event_type TEXT NOT NULL,
             timestamp TEXT NOT NULL,
 
             penalty INTEGER DEFAULT 0,
 
             remarks TEXT,
+            screenshot_path TEXT,
 
             FOREIGN KEY(candidate_id)
             REFERENCES Candidate(candidate_id)
@@ -80,11 +80,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def log_event(candidate_id,
-              event_type,
-              timestamp,
-              remarks,
-              session_id=None):
+def log_event(candidate_id,event_type,timestamp,remarks,session_id=None,screenshot_path=None):
 
     penalty = 0
 
@@ -97,7 +93,7 @@ def log_event(candidate_id,
     elif event_type == "Browser Tab Switch":
         penalty = 10
 
-    elif event_type == "Multiple Face Detected":
+    elif event_type == "Multiple Faces Detected":
         penalty = 15
 
     conn = get_db_connection()
@@ -105,29 +101,104 @@ def log_event(candidate_id,
 
     cursor.execute(
         '''
-        INSERT INTO EventLog
-        (
-            session_id,
-            candidate_id,
-            event_type,
-            timestamp,
-            penalty,
-            remarks
-        )
-        VALUES(?,?,?,?,?,?)
+        INSERT INTO EventLog (session_id, candidate_id, event_type, timestamp, penalty, remarks, screenshot_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ''',
-        (
-            session_id,
-            candidate_id,
-            event_type,
-            timestamp,
-            penalty,
-            remarks
-        )
+        (session_id, candidate_id, event_type, timestamp, penalty, remarks, screenshot_path)
     )
+    if session_id:
+
+        if event_type == "Face Not Detected":
+            cursor.execute("""
+                UPDATE Session
+                SET face_absent_count = face_absent_count + 1
+                WHERE session_id=?
+            """, (session_id,))
+
+        elif event_type == "Browser Focus Lost":
+            cursor.execute("""
+                UPDATE Session
+                SET browser_focus_lost_count = browser_focus_lost_count + 1
+                WHERE session_id=?
+            """, (session_id,))
+
+        elif event_type == "Browser Tab Switch":
+            cursor.execute("""
+                UPDATE Session
+                SET tab_switch_count = tab_switch_count + 1
+                WHERE session_id=?
+            """, (session_id,))
+
+        elif event_type == "Multiple Faces Detected":
+            cursor.execute("""
+                UPDATE Session
+                SET multiple_face_count = multiple_face_count + 1
+                WHERE session_id=?
+            """, (session_id,))
 
     conn.commit()
     conn.close()
+def update_live_integrity_score(session_id):
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    session = cursor.execute("""
+        SELECT *
+        FROM Session
+        WHERE session_id=?
+    """, (session_id,)).fetchone()
+
+    if not session:
+        conn.close()
+        return
+
+    penalty = (
+        session["face_absent_count"] * 5 +
+        session["browser_focus_lost_count"] * 10 +
+        session["tab_switch_count"] * 10 +
+        session["multiple_face_count"] * 15
+    )
+
+    score = max(0, 100 - penalty)
+
+    if score >= 90:
+        risk = "Excellent"
+    elif score >= 75:
+        risk = "Good"
+    elif score >= 50:
+        risk = "Suspicious"
+    elif score >= 25:
+        risk = "High Risk"
+    else:
+        risk = "Very High Risk"
+
+    suspicious = (
+        session["face_absent_count"] +
+        session["browser_focus_lost_count"] +
+        session["tab_switch_count"] +
+        session["multiple_face_count"]
+    )
+
+    cursor.execute("""
+        UPDATE Session
+        SET integrity_score=?,
+            total_penalty=?,
+            suspicious_event_count=?,
+            risk_level=?
+        WHERE session_id=?
+    """,
+    (
+        score,
+        penalty,
+        suspicious,
+        risk,
+        session_id
+    ))
+    # Save updates
+    conn.commit()
+    conn.close()
+    
 
 def get_candidate_by_email(email):
     """Fetches candidate record by email."""
@@ -208,17 +279,64 @@ def export_session_csv(session_id, output_filepath):
         writer.writerow(['Risk Level', session_data['risk_level']])
         writer.writerow([])
         writer.writerow(['EVENT LOG CHRONOLOGY'])
-        writer.writerow(['Log ID', 'Candidate ID', 'Session ID', 'Event Type','Penalty', 'Timestamp', 'Remarks'])
+        writer.writerow([
+    'Log ID',
+    'Candidate ID',
+    'Session ID',
+    'Event Type',
+    'Penalty',
+    'Timestamp',
+    'Remarks',
+    'Screenshot Path'
+])
         
         for event in events:
             writer.writerow([
-                event['id'],
-                event['candidate_id'],
-                event['session_id'] or '',
-                event['event_type'],
-                event['penalty'],
-                event['timestamp'],
-                event['remarks']
-            ])
-            
+    event['id'],
+    event['candidate_id'],
+    event['session_id'] or '',
+    event['event_type'],
+    event['penalty'],
+    event['timestamp'],
+    event['remarks'],
+    event['screenshot_path'] or ''
+])
     return True
+def get_admin_dashboard_data():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    total_candidates = cursor.execute(
+        "SELECT COUNT(*) FROM Candidate"
+    ).fetchone()[0]
+
+    active_sessions = cursor.execute("""
+        SELECT COUNT(*)
+        FROM Session
+        WHERE status IN ('Ongoing','Paused')
+    """).fetchone()[0]
+
+    completed_sessions = cursor.execute(
+        "SELECT COUNT(*) FROM Session WHERE status='Completed'"
+    ).fetchone()[0]
+
+    avg_integrity = cursor.execute(
+        "SELECT ROUND(AVG(integrity_score),2) FROM Session"
+    ).fetchone()[0]
+
+    if avg_integrity is None:
+        avg_integrity = 0
+
+    suspicious_events = cursor.execute(
+        "SELECT COUNT(*) FROM EventLog WHERE penalty > 0"
+    ).fetchone()[0]
+
+    conn.close()
+
+    return {
+        "total_candidates": total_candidates,
+        "active_sessions": active_sessions,
+        "completed_sessions": completed_sessions,
+        "avg_score": avg_integrity,
+        "total_events": suspicious_events
+    }

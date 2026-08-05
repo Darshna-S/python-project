@@ -200,7 +200,7 @@ document.getElementById("scoreBar").style.width = "{{ score }}%";
                 <a href="/session_summary/{{ active_session.session_id }}" class="btn btn-summary">📊 View Session Report</a>
             {% endif %}
         </div>
-        **{% if events is defined and events %}**
+        {% if events is defined and events %}
 
 <div class="profile-grid" style="margin-top:30px;">
 

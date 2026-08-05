@@ -171,23 +171,42 @@
         <div class="table-responsive">
             <table>
                 <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Event Type</th>
-                        <th>Timestamp</th>
-                        <th>Remarks</th>
-                    </tr>
-                </thead>
+<tr>
+    <th>#</th>
+    <th>Event Type</th>
+    <th>Timestamp</th>
+    <th>Remarks</th>
+    <th>Screenshot</th>
+</tr>
+</thead>
                 <tbody>
-                    {% for event in events %}
-                        <tr>
-                            <td>{{ event.id }}</td>
-                            <td><strong style="color:#38bdf8;">{{ event.event_type }}</strong></td>
-                            <td>{{ event.timestamp }}</td>
-                            <td>{{ event.remarks }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
+{% for event in events %}
+<tr>
+    <td>{{ event.id }}</td>
+
+    <td>
+        <strong style="color:#38bdf8;">
+            {{ event.event_type }}
+        </strong>
+    </td>
+
+    <td>{{ event.timestamp }}</td>
+
+    <td>{{ event.remarks }}</td>
+
+    <td>
+        {% if event.screenshot_path %}
+        <a href="/view_screenshot/{{ event.id}}"  target="_blank">
+            📷 View Screenshot
+        </a>
+    {% else %}
+        -
+    {% endif %}
+    </td>
+
+</tr>
+{% endfor %}
+</tbody>
             </table>
         </div>
 
