@@ -2,6 +2,7 @@ import sqlite3
 import os
 import csv
 from datetime import datetime
+from scoring import calculate_complete_score
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'database.db')
@@ -47,10 +48,11 @@ def init_db():
 
             total_detected_seconds REAL DEFAULT 0.0,
             total_session_seconds REAL DEFAULT 0.0,
+            face_presence_ratio REAL DEFAULT 0.0,
 
             integrity_score INTEGER DEFAULT 100,
             total_penalty INTEGER DEFAULT 0,
-            risk_level TEXT DEFAULT 'Excellent',
+            risk_level TEXT DEFAULT 'Low Risk',
 
             FOREIGN KEY (candidate_id)
             REFERENCES Candidate(candidate_id)
@@ -76,11 +78,36 @@ def init_db():
             REFERENCES Candidate(candidate_id)
         )
     ''')
+
+    # 4. Administrator Accounts Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Admin (
+            admin_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            email TEXT,
+            name TEXT,
+            created_at TEXT NOT NULL
+        )
+    ''')
+
+    cursor.execute('SELECT COUNT(*) FROM Admin')
+    if cursor.fetchone()[0] == 0:
+        cursor.execute('''
+            INSERT INTO Admin (username, password, email, name, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            'admin',
+            'admin123',
+            'admin@example.com',
+            'Administrator',
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        ))
     
     conn.commit()
     conn.close()
 
-def log_event(candidate_id,event_type,timestamp,remarks,session_id=None,screenshot_path=None):
+def log_event(candidate_id, event_type, timestamp, remarks,session_id=None, screenshot_path=None):
 
     penalty = 0
 
@@ -99,13 +126,21 @@ def log_event(candidate_id,event_type,timestamp,remarks,session_id=None,screensh
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        '''
-        INSERT INTO EventLog (session_id, candidate_id, event_type, timestamp, penalty, remarks, screenshot_path)
+    cursor.execute("""
+        INSERT INTO EventLog
+        (session_id, candidate_id, event_type, timestamp,
+         penalty, remarks, screenshot_path)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''',
-        (session_id, candidate_id, event_type, timestamp, penalty, remarks, screenshot_path)
-    )
+    """, (
+        session_id,
+        candidate_id,
+        event_type,
+        timestamp,
+        penalty,
+        remarks,
+        screenshot_path
+    ))
+
     if session_id:
 
         if event_type == "Face Not Detected":
@@ -118,33 +153,54 @@ def log_event(candidate_id,event_type,timestamp,remarks,session_id=None,screensh
         elif event_type == "Browser Focus Lost":
             cursor.execute("""
                 UPDATE Session
-                SET browser_focus_lost_count = browser_focus_lost_count + 1
+                SET browser_focus_lost_count =
+                    browser_focus_lost_count + 1
                 WHERE session_id=?
             """, (session_id,))
 
         elif event_type == "Browser Tab Switch":
             cursor.execute("""
                 UPDATE Session
-                SET tab_switch_count = tab_switch_count + 1
+                SET tab_switch_count =
+                    tab_switch_count + 1
                 WHERE session_id=?
             """, (session_id,))
 
         elif event_type == "Multiple Faces Detected":
             cursor.execute("""
                 UPDATE Session
-                SET multiple_face_count = multiple_face_count + 1
+                SET multiple_face_count =
+                    multiple_face_count + 1
                 WHERE session_id=?
             """, (session_id,))
 
-    conn.commit()
-    conn.close()
+        # Update suspicious event count
+        cursor.execute("""
+            UPDATE Session
+            SET suspicious_event_count =
+                face_absent_count +
+                browser_focus_lost_count +
+                tab_switch_count +
+                multiple_face_count
+            WHERE session_id=?
+        """, (session_id,))
+
+        conn.commit()
+        conn.close()
+
+        # Calculate live score AFTER counters are updated
+        update_live_integrity_score(session_id)
+
+    else:
+        conn.commit()
+        conn.close()
 def update_live_integrity_score(session_id):
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     session = cursor.execute("""
-        SELECT *
+        SELECT total_detected_seconds, total_session_seconds
         FROM Session
         WHERE session_id=?
     """, (session_id,)).fetchone()
@@ -153,31 +209,15 @@ def update_live_integrity_score(session_id):
         conn.close()
         return
 
-    penalty = (
-        session["face_absent_count"] * 5 +
-        session["browser_focus_lost_count"] * 10 +
-        session["tab_switch_count"] * 10 +
-        session["multiple_face_count"] * 15
-    )
+    events = cursor.execute(
+        "SELECT event_type FROM EventLog WHERE session_id=?",
+        (session_id,)
+    ).fetchall()
 
-    score = max(0, 100 - penalty)
-
-    if score >= 90:
-        risk = "Excellent"
-    elif score >= 75:
-        risk = "Good"
-    elif score >= 50:
-        risk = "Suspicious"
-    elif score >= 25:
-        risk = "High Risk"
-    else:
-        risk = "Very High Risk"
-
-    suspicious = (
-        session["face_absent_count"] +
-        session["browser_focus_lost_count"] +
-        session["tab_switch_count"] +
-        session["multiple_face_count"]
+    result = calculate_complete_score(
+        events,
+        session["total_detected_seconds"] or 0,
+        session["total_session_seconds"] or 0,
     )
 
     cursor.execute("""
@@ -185,17 +225,19 @@ def update_live_integrity_score(session_id):
         SET integrity_score=?,
             total_penalty=?,
             suspicious_event_count=?,
-            risk_level=?
+            risk_level=?,
+            face_presence_ratio=?
         WHERE session_id=?
     """,
     (
-        score,
-        penalty,
-        suspicious,
-        risk,
+        result["score"],
+        result["total_penalty"],
+        result["suspicious_event_count"],
+        result["risk_label"],
+        result["face_presence_ratio"],
         session_id
     ))
-    # Save updates
+
     conn.commit()
     conn.close()
     
@@ -213,6 +255,13 @@ def get_candidate_by_id(candidate_id):
     candidate = conn.execute('SELECT * FROM Candidate WHERE candidate_id = ?', (candidate_id,)).fetchone()
     conn.close()
     return candidate
+
+def get_admin_by_username(username):
+    """Fetches administrator record by username."""
+    conn = get_db_connection()
+    admin = conn.execute('SELECT * FROM Admin WHERE username = ?', (username,)).fetchone()
+    conn.close()
+    return admin
 
 def get_session_by_id(session_id):
     """Fetches exam session record by session_id."""

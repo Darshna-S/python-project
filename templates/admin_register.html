@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Candidate Login - ProctorGuard System</title>
+    <title>Administrator Registration - ProctorGuard System</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
@@ -35,7 +35,6 @@
         }
         .btn-cand { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
         .btn-adm { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
-        .btn-tbl { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4); }
         
         .main-wrapper {
             flex: 1;
@@ -45,76 +44,65 @@
             padding: 40px 20px;
         }
         .card {
-            background: rgba(30, 41, 59, 0.7);
+            background: rgba(30, 41, 59, 0.8);
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 16px;
             padding: 40px;
             width: 100%;
-            max-width: 440px;
+            max-width: 480px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
-        h2 { text-align: center; font-size: 26px; font-weight: 700; margin-bottom: 8px; color: #10b981; }
-        p.subtitle { text-align: center; color: #94a3b8; font-size: 14px; margin-bottom: 25px; }
+        h2 { text-align: center; color: #3b82f6; font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+        .subtitle { text-align: center; color: #94a3b8; font-size: 14px; margin-bottom: 25px; }
         
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-size: 13px; font-weight: 600; color: #cbd5e1; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; color: #cbd5e1; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         input {
             width: 100%;
-            padding: 14px 16px;
-            background: rgba(15, 23, 42, 0.6);
+            padding: 12px 16px;
+            background: #0f172a;
             border: 1px solid #334155;
             border-radius: 8px;
-            color: #fff;
+            color: white;
             font-size: 15px;
-            transition: all 0.3s ease;
         }
-        input:focus { outline: none; border-color: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+        input:focus { outline: none; border-color: #3b82f6; }
         
-        .btn-submit {
+        button {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
             border: none;
             border-radius: 8px;
+            background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
             color: white;
-            font-weight: 600;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             margin-top: 10px;
         }
-        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3); }
+        button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3); }
         
-        .portal-bar {
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-        
-        .flash { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; text-align: center; }
+        .flash { margin-bottom: 20px; padding: 12px; border-radius: 8px; background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #fca5a5; text-align: center; font-size: 14px; }
         .footer-link { text-align: center; margin-top: 20px; font-size: 14px; color: #94a3b8; }
         .footer-link a { color: #38bdf8; text-decoration: none; font-weight: 600; }
     </style>
 </head>
 <body>
     <nav class="navbar">
-        <a href="/" class="nav-brand">🛡️ ProctorGuard</a>
+        <a href="/" class="nav-brand">🛡️ Admin Portal</a>
         <div class="nav-links">
             <a href="/login" class="nav-btn btn-cand">👨‍🎓 Candidate Login</a>
             <a href="/admin/login" class="nav-btn btn-adm">🛡️ Admin Login</a>
-            <a href="/event_logs" class="nav-btn btn-tbl">📋 Eventlogs Table</a>
         </div>
     </nav>
 
     <div class="main-wrapper">
         <div class="card">
-            <h2>👨‍🎓 Candidate Login</h2>
-            <p class="subtitle">Sign in as a candidate to access your examination room.</p>
-            
+            <h2>🛡️ Administrator Registration</h2>
+            <p class="subtitle">Create a new Administrator account profile</p>
+
             {% with messages = get_flashed_messages() %}
                 {% if messages %}
                     <div class="flash">
@@ -125,27 +113,32 @@
                 {% endif %}
             {% endwith %}
 
-            <form action="/login" method="POST" id="loginForm">
+            <form action="/admin/register" method="POST">
                 <div class="form-group">
-                    <label for="email">Candidate Email</label>
-                    <input type="email" id="email" name="email" placeholder="john@example.com" required>
+                    <label>Admin Username</label>
+                    <input type="text" name="username" placeholder="e.g. admin_proctor" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                    <label>Full Name</label>
+                    <input type="text" name="name" placeholder="Administrator Name" required>
                 </div>
 
-                <button type="submit" class="btn-submit">🔐 Sign In as Candidate</button>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="admin@example.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit">🛡️ Register Admin Account</button>
             </form>
 
-            <div class="portal-bar">
-                <a href="/admin/login" class="nav-btn btn-adm" style="flex:1; text-align:center;">🛡️ Admin Login</a>
-                <a href="/event_logs" class="nav-btn btn-tbl" style="flex:1; text-align:center;">📋 Eventlogs Table</a>
-            </div>
-
             <div class="footer-link">
-                Need a new candidate account? <a href="/register">Register here</a>
+                Already have an admin account? <a href="/admin/login">Log in here</a>
             </div>
         </div>
     </div>

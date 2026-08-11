@@ -2,7 +2,9 @@ import os
 import uuid
 import sqlite3
 import cv2
-from datetime import datetime
+from datetime import date, datetime
+from scoring import calculate_complete_score
+from database import update_live_integrity_score
 from flask import (
     Flask,
     render_template,
@@ -21,6 +23,7 @@ from database import (
     log_event,
     get_candidate_by_email,
     get_candidate_by_id,
+    get_admin_by_username,
     get_session_by_id,
     get_session_events,
     export_session_csv,
@@ -35,119 +38,187 @@ app.secret_key = "proctorguard_internship_milestone_secret_key"
 face_monitor = FaceMonitor(BASE_DIR)
 from flask import send_from_directory
 
+
+def _clamp(value, minimum, maximum):
+    return max(minimum, min(maximum, value))
+
+
+def ensure_database_schema():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Session'")
+        if cursor.fetchone() is None:
+            conn.close()
+            return
+
+        columns = [row[1] for row in cursor.execute("PRAGMA table_info(Session)")]
+
+        if 'face_presence_ratio' not in columns:
+            cursor.execute("ALTER TABLE Session ADD COLUMN face_presence_ratio REAL DEFAULT 0.0")
+
+        if 'risk_level' not in columns:
+            cursor.execute("ALTER TABLE Session ADD COLUMN risk_level TEXT DEFAULT 'Low Risk'")
+
+        if 'integrity_score' not in columns:
+            cursor.execute("ALTER TABLE Session ADD COLUMN integrity_score REAL DEFAULT 100.0")
+
+        if 'total_penalty' not in columns:
+            cursor.execute("ALTER TABLE Session ADD COLUMN total_penalty REAL DEFAULT 0.0")
+
+        if 'suspicious_event_count' not in columns:
+            cursor.execute("ALTER TABLE Session ADD COLUMN suspicious_event_count INTEGER DEFAULT 0")
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    finally:
+        conn.close()
+
+
+def calculate_weighted_integrity_score(session_id):
+    conn = get_db_connection()
+    session_row = conn.execute(
+        "SELECT session_id, total_detected_seconds, total_session_seconds FROM Session WHERE session_id=?",
+        (session_id,)
+    ).fetchone()
+    events = conn.execute(
+        "SELECT event_type FROM EventLog WHERE session_id=?",
+        (session_id,)
+    ).fetchall()
+    conn.close()
+
+    if not session_row:
+        return {
+            "score": 100,
+            "penalty": 0,
+            "suspicious_event_count": 0,
+            "risk_label": "Low Risk",
+            "face_presence_ratio": 0,
+        }
+
+    result = calculate_complete_score(
+        events,
+        session_row["total_detected_seconds"] or 0,
+        session_row["total_session_seconds"] or 0,
+    )
+
+    return {
+        "score": result["score"],
+        "penalty": result.get("penalty", result.get("total_penalty", 0)),
+        "suspicious_event_count": result["suspicious_event_count"],
+        "risk_label": result["risk_label"],
+        "face_presence_ratio": result["face_presence_ratio"],
+    }
+
+
+def persist_session_score(session_id, conn=None):
+    if conn is None:
+        conn = get_db_connection()
+        close_conn = True
+    else:
+        close_conn = False
+
+    try:
+        result = calculate_weighted_integrity_score(session_id)
+        conn.execute(
+            """
+            UPDATE Session
+            SET integrity_score=?,
+                total_penalty=?,
+                suspicious_event_count=?,
+                risk_level=?,
+                face_presence_ratio=?
+            WHERE session_id=?
+            """,
+            (
+                result["score"],
+                result["penalty"],
+                result["suspicious_event_count"],
+                result["risk_label"],
+                result["face_presence_ratio"],
+                session_id,
+            ),
+        )
+        conn.commit()
+        return result
+    finally:
+        if close_conn:
+            conn.close()
+
+
+def log_event_and_update_score(candidate_id, event_type, timestamp, remarks, session_id=None, screenshot_path=None):
+    if session_id is None:
+        session_id = session.get("active_session_id")
+
+    log_event(
+        candidate_id,
+        event_type,
+        timestamp,
+        remarks,
+        session_id=session_id,
+        screenshot_path=screenshot_path,
+    )
+
+    if session_id:
+        persist_session_score(session_id)
+
+
 @app.route('/view_screenshot/<int:event_id>')
 def view_screenshot(event_id):
-
     conn = get_db_connection()
-
     event = conn.execute(
-        "SELECT screenshot_path FROM EventLog WHERE id=?",
+        "SELECT screenshot_path, candidate_id FROM EventLog WHERE id=?",
         (event_id,)
     ).fetchone()
-
     conn.close()
 
     if not event:
-        return "Event not found", 404
+        return "Event log not found", 404
 
-    if not event["screenshot_path"]:
-        return "Screenshot not found", 404
+    s_path = event["screenshot_path"]
+    if not s_path:
+        fallback_bytes = face_monitor.create_fallback_proctor_frame(
+            event["candidate_id"] or "Candidate",
+            is_warning=True
+        )
+        return Response(fallback_bytes, mimetype="image/jpeg")
 
-    return send_file(event["screenshot_path"])
+    full_path = s_path if os.path.isabs(s_path) else os.path.join(BASE_DIR, s_path)
 
-def calculate_integrity_score(session_id, metrics):
-    """
-    Calculates Integrity Score based on session statistics.
-    """
+    if not os.path.exists(full_path):
+        fallback_bytes = face_monitor.create_fallback_proctor_frame(
+            event["candidate_id"] or "Candidate",
+            is_warning=True
+        )
+        return Response(fallback_bytes, mimetype="image/jpeg")
 
-    conn = get_db_connection()
+    return send_file(full_path)
 
-    row = conn.execute("""
-        SELECT face_absent_count,
-       browser_focus_lost_count,
-       tab_switch_count,
-       multiple_face_count
-        FROM Session
-        WHERE session_id=?
-    """, (session_id,)).fetchone()
-
-    conn.close()
-
-    score = 100
-    penalty = 0
-
-    face_absent = row["face_absent_count"]
-    browser_lost = row["browser_focus_lost_count"]
-    tab_switch = row["tab_switch_count"]
-    multiple_face = row["multiple_face_count"]
-
-    total_session = metrics["total_session_seconds"]
-    detected = metrics["total_detected_seconds"]
-
-    face_absence_duration = max(0, total_session - detected)
-
-    penalty += face_absent * 5
-    penalty += browser_lost * 10
-    penalty += tab_switch * 10
-    penalty += multiple_face * 15
-    if face_absence_duration > 10:
-        penalty += 5
-
-    if face_absence_duration > 30:
-        penalty += 10
-
-    # --------------------
-    # Rule 4
-    # --------------------
-    if face_absent >= 5:
-        penalty += 5
-
-    # --------------------
-    # Rule 5
-    # --------------------
-    if browser_lost >= 5:
-        penalty += 10
-
-    score = max(0, 100 - penalty)
-
-    if score >= 90:
-        risk = "Excellent"
-
-    elif score >= 75:
-        risk = "Good"
-
-    elif score >= 50:
-        risk = "Suspicious"
-
-    elif score >= 25:
-        risk = "High Risk"
-
-    else:
-        risk = "Very High Risk"
-
-    return score, penalty, risk
 
 @app.before_request
 def initialize_system():
     init_db()
+    ensure_database_schema()
 
 @app.route('/video_feed')
 def video_feed():
     """Streaming route for HTML pages to render live webcam frames."""
     return Response(
-        face_monitor.generate_frames(db_log_callback=log_event), 
+        face_monitor.generate_frames(db_log_callback=log_event_and_update_score),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
 @app.route("/api/integrity_score")
 def get_integrity_score():
 
     if "candidate_id" not in session:
-        return jsonify({"score":100})
+        return jsonify({"score": 100, "penalty": 0, "risk_level": "Low Risk", "face_presence_ratio": 0, "suspicious_event_count": 0})
 
     conn = get_db_connection()
 
     row = conn.execute("""
-        SELECT integrity_score,total_penalty
+        SELECT session_id, integrity_score, total_penalty
         FROM Session
         WHERE candidate_id=?
         AND status!='Completed'
@@ -157,21 +228,26 @@ def get_integrity_score():
 
     conn.close()
 
-    if row:
+    if row and row["session_id"]:
+        latest = calculate_weighted_integrity_score(row["session_id"])
         return jsonify({
-            "score":row["integrity_score"],
-            "penalty":row["total_penalty"]
+            "score": latest["score"],
+            "penalty": latest["penalty"],
+            "risk_level": latest["risk_label"],
+            "face_presence_ratio": latest["face_presence_ratio"],
+            "suspicious_event_count": latest["suspicious_event_count"],
         })
 
     return jsonify({
         "score":100,
-        "penalty":0
+        "penalty":0,
+        "risk_level":"Low Risk",
+        "face_presence_ratio":0,
+        "suspicious_event_count":0,
     })
 @app.route('/')
 def index():
-    if 'candidate_id' in session:
-        return redirect('/dashboard')
-    return redirect('/login')
+    return render_template('index.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -223,6 +299,10 @@ def login():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
 
+        if not email or not password:
+            flash('Error: Email and password are required for candidate login.')
+            return redirect('/login')
+
         candidate = get_candidate_by_email(email)
 
         if candidate and candidate['password'] == password:
@@ -232,11 +312,10 @@ def login():
 
             now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             log_event(candidate['candidate_id'], 'Candidate Login', now_str, f"Successful candidate login from email {email}")
-            
             return redirect('/dashboard')
-        else:
-            flash("Error: Invalid email or password credentials.")
-            return redirect('/login')
+
+        flash('Error: Invalid email or password credentials.')
+        return redirect('/login')
 
     return render_template('login.html')
 
@@ -270,6 +349,11 @@ LIMIT 20
 
 @app.route("/admin")
 def admin():
+    if session.get('candidate_id') and not session.get('admin_logged_in'):
+        flash("Access Denied: Candidates are not authorized to access Administrator Dashboard.")
+        return redirect('/dashboard')
+    if not session.get('admin_logged_in'):
+        return redirect('/admin/login')
 
     conn = get_db_connection()
 
@@ -277,9 +361,11 @@ def admin():
         "SELECT COUNT(*) FROM Candidate"
     ).fetchone()[0]
 
-    active_sessions = conn.execute(
-        "SELECT COUNT(*) FROM Session WHERE status='Ongoing'"
-    ).fetchone()[0]
+    active_sessions = conn.execute("""
+    SELECT COUNT(*)
+    FROM Session
+    WHERE status IN ('Ongoing', 'Paused')
+""").fetchone()[0]
 
     completed_sessions = conn.execute(
         "SELECT COUNT(*) FROM Session WHERE status='Completed'"
@@ -291,6 +377,10 @@ def admin():
 
     total_events = conn.execute(
         "SELECT COUNT(*) FROM EventLog"
+    ).fetchone()[0]
+
+    suspicious_events = conn.execute(
+        "SELECT COUNT(*) FROM EventLog WHERE event_type IN ('Face Not Detected', 'Browser Focus Lost', 'Browser Tab Switch', 'Multiple Faces Detected')"
     ).fetchone()[0]
 
     face_events = conn.execute(
@@ -307,6 +397,34 @@ def admin():
 
     lowest_score = conn.execute(
         "SELECT MIN(integrity_score) FROM Session"
+    ).fetchone()[0] or 0
+
+    avg_face_presence_ratio = conn.execute(
+        "SELECT ROUND(AVG(face_presence_ratio), 2) FROM Session"
+    ).fetchone()[0] or 0
+
+    attended_candidates = conn.execute(
+        "SELECT COUNT(DISTINCT candidate_id) FROM Session WHERE status IN ('Completed', 'Ongoing')"
+    ).fetchone()[0] or 0
+
+    above_score_count = conn.execute(
+        "SELECT COUNT(*) FROM Session WHERE integrity_score >= 70"
+    ).fetchone()[0] or 0
+
+    below_score_count = conn.execute(
+        "SELECT COUNT(*) FROM Session WHERE integrity_score < 70"
+    ).fetchone()[0] or 0
+
+    face_detection_accuracy = conn.execute(
+        "SELECT ROUND(AVG(face_presence_ratio), 1) FROM Session"
+    ).fetchone()[0] or 100.0
+
+    tab_events = conn.execute(
+        "SELECT COUNT(*) FROM EventLog WHERE event_type='Browser Tab Switch'"
+    ).fetchone()[0] or 0
+
+    multi_face_events = conn.execute(
+        "SELECT COUNT(*) FROM EventLog WHERE event_type='Multiple Faces Detected'"
     ).fetchone()[0] or 0
 
     candidate_id = request.args.get("candidate_id", "")
@@ -337,19 +455,86 @@ def admin():
     return render_template(
         "admin_dashboard.html",
         total_candidates=total_candidates,
+        attended_candidates=attended_candidates,
         active_sessions=active_sessions,
         completed_sessions=completed_sessions,
         avg_score=avg_score,
+        above_score_count=above_score_count,
+        below_score_count=below_score_count,
+        face_detection_accuracy=face_detection_accuracy,
         total_events=total_events,
+        suspicious_events=suspicious_events,
         face_events=face_events,
         browser_events=browser_events,
+        tab_events=tab_events,
+        multi_face_events=multi_face_events,
         highest_score=highest_score,
         lowest_score=lowest_score,
+        avg_face_presence_ratio=avg_face_presence_ratio,
         events=events
     )
+@app.route('/admin/register', methods=['GET', 'POST'])
+def admin_register():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+
+        if not username or not name or not email or not password:
+            flash("Error: All fields are required for administrator registration.")
+            return redirect('/admin/register')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT INTO Admin (username, password, email, name, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (username, password, email, name, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+            conn.commit()
+            conn.close()
+            flash("Administrator profile registered successfully! Please log in below.", "success")
+            return redirect('/admin/login')
+        except sqlite3.IntegrityError:
+            conn.close()
+            flash("Error: Administrator username or email already exists.")
+            return redirect('/admin/register')
+
+    return render_template('admin_register.html')
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if session.get('candidate_id') and not session.get('admin_logged_in'):
+        flash("Access Denied: Candidate accounts cannot access Administrator Login.")
+        return redirect('/dashboard')
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+
+        if not username or not password:
+            flash("Error: Username and password are required for administrator login.")
+            return redirect('/admin/login')
+
+        admin = get_admin_by_username(username)
+        if admin and admin['password'] == password:
+            session['admin_logged_in'] = True
+            session['admin_username'] = admin['username']
+            flash("Administrator login successful.", "success")
+            return redirect('/admin')
+
+        flash("Invalid admin username or password.")
+
+    return render_template('admin_login.html')
+@app.route('/admin/logout')
+def admin_logout():
+
+    session.pop('admin_logged_in', None)
+
+    return redirect('/admin/login')
 @app.route("/event_logs")
 def event_logs():
-
     conn = get_db_connection()
 
     candidate_id = request.args.get("candidate_id", "")
@@ -397,68 +582,65 @@ def monitoring_status():
 def live_score():
 
     if 'active_session_id' not in session:
-        return jsonify({"score": 100})
+        return jsonify({"score": 100, "penalty": 0, "risk_level": "Low Risk", "face_presence_ratio": 0, "suspicious_event_count": 0, "browser_focus_lost_count": 0})
 
     session_id = session['active_session_id']
+    result = calculate_weighted_integrity_score(session_id)
 
     conn = get_db_connection()
-
-    row = conn.execute("""
-        SELECT
-            face_absent_count,
-            browser_focus_lost_count,
-            tab_switch_count,
-            multiple_face_count
-        FROM Session
-        WHERE session_id=?
-    """, (session_id,)).fetchone()
-
+    session_row = conn.execute(
+        "SELECT browser_focus_lost_count FROM Session WHERE session_id = ?",
+        (session_id,)
+    ).fetchone()
     conn.close()
 
-    if not row:
-        return jsonify({"score":100})
-
-    penalty = (
-        row["face_absent_count"] * 5 +
-        row["browser_focus_lost_count"] * 10 +
-        row["tab_switch_count"] * 10 +
-        row["multiple_face_count"] * 15
-    )
-
-    score = max(0, 100 - penalty)
-
     return jsonify({
-        "score": score,
-        "face_absent": row["face_absent_count"],
-        "browser_lost": row["browser_focus_lost_count"],
-        "tab_switch": row["tab_switch_count"],
-        "multiple_face": row["multiple_face_count"]
+        "score": result["score"],
+        "penalty": result["penalty"],
+        "risk_level": result["risk_label"],
+        "face_presence_ratio": result["face_presence_ratio"],
+        "suspicious_event_count": result["suspicious_event_count"],
+        "browser_focus_lost_count": session_row["browser_focus_lost_count"] if session_row else 0,
     })
 @app.route('/api/log_event', methods=['POST'])
 def api_log_event():
+
     if 'candidate_id' not in session:
         return jsonify({'status': 'error'}), 401
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     event_type = data.get("event_type")
     remarks = data.get("remarks", "")
 
-    c_id = session["candidate_id"]
-    s_id = session.get("active_session_id")
+    if not event_type:
+        return jsonify({
+            "status": "error",
+            "message": "event_type is required"
+        }), 400
+
+    candidate_id = session["candidate_id"]
+    session_id = session.get("active_session_id")
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     screenshot_path = None
 
     if event_type == "Browser Focus Lost":
         screenshot_path = face_monitor.capture_browser_screenshot()
-    log_event(c_id, event_type, now, remarks, session_id=s_id, screenshot_path=screenshot_path)
 
-    if s_id:
-        from database import update_live_integrity_score
-        update_live_integrity_score(s_id)
+    log_event_and_update_score(
+        candidate_id,
+        event_type,
+        now,
+        remarks,
+        session_id=session_id,
+        screenshot_path=screenshot_path
+    )
 
-    return jsonify({"status":"success"})
+    return jsonify({
+        "status": "success"
+    })
 @app.route('/update_session/<action>')
 def update_session(action):
     if 'candidate_id' not in session:
@@ -526,68 +708,35 @@ def update_session(action):
         s_id
     ))
 
-    conn.commit()
+        conn.commit()
 
-    # -------------------------
-    # Calculate Integrity Score
-    # -------------------------
+        result = persist_session_score(s_id, conn=conn)
+        score = result["score"]
+        penalty = result["penalty"]
+        risk = result["risk_label"]
 
-    score, penalty, risk = calculate_integrity_score(s_id, metrics)
-    cursor.execute("""
-SELECT
-    face_absent_count,
-    browser_focus_lost_count,
-    tab_switch_count,
-    multiple_face_count
-FROM Session
-WHERE session_id = ?
-""", (s_id,))
+        log_event(
+            c_id,
+            "Integrity Score Calculated",
+            now_str,
+            f"Score={score}, Penalty={penalty}, Risk={risk}",
+            session_id=s_id
+        )
 
-    row=  cursor.fetchone()
+        log_event(
+            c_id,
+            "Exam Session Submitted",
+            now_str,
+            f"Integrity Score={score}",
+            session_id=s_id
+        )
 
-    suspicious=row["face_absent_count"] + \
-           row["browser_focus_lost_count"] + \
-           row["tab_switch_count"] + \
-           row["multiple_face_count"]
+        flash("Exam completed successfully.")
+        session.pop('active_session_id', None)
 
-    cursor.execute("""
-        UPDATE Session
-        SET integrity_score=?,
-            total_penalty=?,
-            suspicious_event_count=?,
-            risk_level=?
-        WHERE session_id=?
-    """, (
-        score,
-        penalty,
-        suspicious,
-        risk,
-        s_id
-    ))
+        conn.close()
 
-    conn.commit()
-
-    log_event(
-        c_id,
-        "Integrity Score Calculated",
-        now_str,
-        f"Score={score}, Penalty={penalty}, Risk={risk}",
-        session_id=s_id
-    )
-
-    log_event(
-        c_id,
-        "Exam Session Submitted",
-        now_str,
-        f"Integrity Score={score}",
-        session_id=s_id
-    )
-
-    flash("Exam completed successfully.")
-
-    conn.close()
-
-    return redirect(f"/session_summary/{s_id}")
+        return redirect(f"/session_summary/{s_id}")
 
 
 @app.route('/session_summary/<session_id>')
@@ -597,15 +746,27 @@ def session_summary(session_id):
 
     candidate = get_candidate_by_id(session['candidate_id'])
     session_data = get_session_by_id(session_id)
+    if session_data is None:
+        session_data = {}
+    else:
+        session_data = dict(session_data)
+
+    scoring = calculate_weighted_integrity_score(session_id)
+    session_data.update({
+        "integrity_score": scoring["score"],
+        "total_penalty": scoring["penalty"],
+        "risk_level": scoring["risk_label"],
+        "face_presence_ratio": scoring["face_presence_ratio"],
+        "suspicious_event_count": scoring["suspicious_event_count"],
+    })
     events = get_session_events(session_id)
-    print(candidate)
-    print(session_data)
     return render_template('summary.html', candidate=candidate, session_data=session_data, events=events)
 
 @app.route('/export_csv/<session_id>')
 def export_csv(session_id):
-    if 'candidate_id' not in session:
-        return redirect('/login')
+
+    if not session.get('admin_logged_in'):
+        return redirect('/admin/login')
 
     filename = f"proctor_log_{session_id}.csv"
     filepath = os.path.join(BASE_DIR, filename)

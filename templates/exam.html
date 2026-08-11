@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proctored Examination Room</title>
+    <title>Proctored Examination Room - ProctorGuard</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
@@ -53,7 +53,7 @@
 
         .warning-banner {
             display: none;
-            background: rgba(240, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.2);
             border: 2px solid #ef4444;
             color: #fca5a5;
             padding: 15px;
@@ -92,17 +92,18 @@
             padding: 15px;
             border: 1px solid #334155;
             text-align: center;
+            position: relative;
         }
         .webcam-card h4 { font-size: 14px; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; }
         .webcam-stream {
-        width: 300px;
-        height: 220px;
-        border-radius: 8px;
-        border: 2px solid #334155;
-        object-fit: cover;
-        background: #000;
-        display: block;
-        margin: auto;
+            width: 300px;
+            height: 220px;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            object-fit: cover;
+            background: #000;
+            display: block;
+            margin: auto;
         }
         .status-card {
             background: #1e293b;
@@ -145,7 +146,7 @@
 </head>
 <body>
     <div class="navbar">
-        <div class="nav-title">PROCTORGUARD EXAM PORTAL</div>
+        <div class="nav-title">🛡️ PROCTORGUARD EXAM ROOM</div>
         <div class="candidate-info">Candidate: <strong>{{ candidate.name }}</strong> ({{ candidate.candidate_id }})</div>
     </div>
 
@@ -159,10 +160,29 @@
                 </div>
 
                 <div class="exam-header">
-                    <h3>Online Proctoring Examination</h3>
-                    <p>Your examination session is being monitored. Please remain visible on camera and keep this browser window active throughout the session.</p>
+                    <h3>Advanced Computer Science Examination</h3>
+                    <p>Your examination session is being proctored in real time. Keep this browser window active and remain visible on camera.</p>
+                </div>
+
+                <!-- Sample Exam Questions -->
+                <div class="question-box">
+                    <h4>Question 1: Which data structure uses LIFO (Last In First Out) principle?</h4>
+                    <div class="option-item"><label><input type="radio" name="q1" value="A"> A) Queue</label></div>
+                    <div class="option-item"><label><input type="radio" name="q1" value="B"> B) Stack</label></div>
+                    <div class="option-item"><label><input type="radio" name="q1" value="C"> C) Array</label></div>
+                    <div class="option-item"><label><input type="radio" name="q1" value="D"> D) Linked List</label></div>
+                </div>
+
+                <div class="question-box">
+                    <h4>Question 2: What is the time complexity of searching an element in a balanced Binary Search Tree (BST)?</h4>
+                    <div class="option-item"><label><input type="radio" name="q2" value="A"> A) O(1)</label></div>
+                    <div class="option-item"><label><input type="radio" name="q2" value="B"> B) O(n)</label></div>
+                    <div class="option-item"><label><input type="radio" name="q2" value="C"> C) O(log n)</label></div>
+                    <div class="option-item"><label><input type="radio" name="q2" value="D"> D) O(n log n)</label></div>
+                </div>
             </div>
-            <a href="/update_session/end" onclick="return confirm('Are you sure you want to finish and submit the exam?');">
+
+            <a href="/update_session/end" onclick="return confirm('Are you sure you want to finish and submit the exam session?');">
                 <button type="button" class="btn-end">🏁 Submit & Finish Exam Session</button>
             </a>
         </div>
@@ -170,12 +190,14 @@
         <!-- Sidebar Monitoring -->
         <div class="sidebar">
             <div class="webcam-card">
-                <h4>Live Face Monitoring</h4>
-                <img src="/video_feed" class="webcam-stream" alt="Webcam Feed">
+                <h4>Live Face Monitoring Feed</h4>
+                <!-- Dual Camera Stream: Server Video Feed with HTML5 Fallback -->
+                <img id="serverVideoImg" src="/video_feed" class="webcam-stream" alt="Webcam Feed" onerror="enableClientWebcamFallback()">
+                <video id="clientVideo" autoplay playsinline style="display:none;" class="webcam-stream"></video>
             </div>
 
             <div class="status-card">
-                <h4 style="color:#94a3b8; font-size:13px; text-transform:uppercase; margin-bottom:15px;">Real-Time Status</h4>
+                <h4 style="color:#94a3b8; font-size:13px; text-transform:uppercase; margin-bottom:15px;">Real-Time Proctoring Status</h4>
                 
                 <div class="status-row">
                     <span>Face Visibility:</span>
@@ -193,21 +215,29 @@
                 </div>
                 <div class="status-row">
                     <span>Browser Focus Lost:</span>
-                    <span id="browserLostText"style="font-weight:700;color:#fbbf24;">0
-                    </span>
+                    <span id="browserLostText" style="font-weight:700; color:#fbbf24;">0</span>
+                </div>
+
+                <div class="status-row">
+                    <span>Suspicious Events:</span>
+                    <span id="suspiciousEventText" style="font-weight:700; color:#f43f5e;">0</span>
+                </div>
+
+                <div class="status-row">
+                    <span>Face Presence Ratio:</span>
+                    <span id="facePresenceRatioText" style="font-weight:700; color:#34d399;">100%</span>
                 </div>
 
                 <div class="status-row">
                     <span>Integrity Score:</span>
-                    <span id="integrityScoreText"style="font-weight:700;color:#22c55e;">100
-                    </span>
+                    <span id="integrityScoreText" style="font-weight:700; color:#22c55e;">100 / 100</span>
                 </div>
 
                 <div class="status-row">
                     <span>Risk Level:</span>
-                    <span id="riskLevelText"style="font-weight:700;color:#38bdf8;">Excellent
-                    </span>
-                </div>               
+                    <span id="riskLevelText" style="font-weight:700; color:#38bdf8;">Low Risk</span>
+                </div>
+
                 <div class="status-row">
                     <span>Session Timer:</span>
                     <span id="sessionTimer" style="font-weight:700; color:#cbd5e1;">00:00</span>
@@ -222,13 +252,33 @@
         const faceStatusBadge = document.getElementById('faceStatusBadge');
         const browserStatusBadge = document.getElementById('browserStatusBadge');
         const absenceCountText = document.getElementById('absenceCountText');
-        const browserLostText =document.getElementById("browserLostText");
-        const integrityScoreText =document.getElementById("integrityScoreText");
-        const riskLevelText =document.getElementById("riskLevelText");
+        const browserLostText = document.getElementById("browserLostText");
+        const suspiciousEventText = document.getElementById("suspiciousEventText");
+        const facePresenceRatioText = document.getElementById("facePresenceRatioText");
+        const integrityScoreText = document.getElementById("integrityScoreText");
+        const riskLevelText = document.getElementById("riskLevelText");
         const faceWarningBanner = document.getElementById('faceWarningBanner');
         const sessionTimer = document.getElementById('sessionTimer');
-        const browserLostCount =document.getElementById("browserLostCount");
-        const liveScore =document.getElementById("liveScore");
+
+        let localBrowserLostCount = 0;
+        let localSuspiciousCount = 0;
+
+        // Enable HTML5 browser camera fallback if server video_feed image stream fails
+        function enableClientWebcamFallback() {
+            const serverImg = document.getElementById('serverVideoImg');
+            const clientVid = document.getElementById('clientVideo');
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                    .then(stream => {
+                        serverImg.style.display = 'none';
+                        clientVid.style.display = 'block';
+                        clientVid.srcObject = stream;
+                    })
+                    .catch(err => {
+                        console.warn('Webcam permission unfulfilled:', err);
+                    });
+            }
+        }
 
         // Session Timer Counter
         setInterval(() => {
@@ -240,133 +290,96 @@
 
         // Function to log JS browser events to Flask backend
         function sendLogEvent(eventType, remarks) {
+            localSuspiciousCount++;
+            suspiciousEventText.innerText = localSuspiciousCount;
+            if (eventType.includes("Focus Lost") || eventType.includes("Tab Switch")) {
+                localBrowserLostCount++;
+                browserLostText.innerText = localBrowserLostCount;
+            }
+
             fetch('/api/log_event', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ event_type: eventType, remarks: remarks })
-            }).catch(err => console.error('Log error:', err));
+            })
+            .then(res => res.json())
+            .then(data => {
+                fetchLiveScoreAndStatus();
+            })
+            .catch(err => console.error('Log error:', err));
         }
 
         // Browser Focus / Blur Event Listeners
-                window.addEventListener("blur", function () {
-
+        window.addEventListener("blur", function () {
             browserStatusBadge.innerText = "Focus Lost";
             browserStatusBadge.className = "badge badge-red";
-
-            sendLogEvent(
-                "Browser Focus Lost",
-                "Candidate switched away from exam window"
-            );
-
+            sendLogEvent("Browser Focus Lost", "Candidate switched away from exam window");
         });
 
         window.addEventListener("focus", function () {
-
             browserStatusBadge.innerText = "Active";
             browserStatusBadge.className = "badge badge-green";
-
         });
 
         document.addEventListener("visibilitychange", function () {
-
             if (document.hidden) {
-
                 browserStatusBadge.innerText = "Tab Switched";
                 browserStatusBadge.className = "badge badge-red";
-
-                sendLogEvent(
-                    "Browser Tab Switch",
-                    "Candidate switched browser tab"
-                );
-
+                sendLogEvent("Browser Tab Switch", "Candidate switched browser tab");
+            } else {
+                browserStatusBadge.innerText = "Active";
+                browserStatusBadge.className = "badge badge-green";
             }
-            else{
-
-                browserStatusBadge.innerText="Active";
-                browserStatusBadge.className="badge badge-green";
-
-            }
-
         });
 
-        // Poll Face Monitoring Status every 500ms
-        setInterval(() => {
+        function fetchLiveScoreAndStatus() {
             Promise.all([
-                    fetch('/api/monitoring_status'),
-                    fetch('/api/live_score')
-                ])
+                fetch('/api/monitoring_status'),
+                fetch('/api/live_score')
+            ])
+            .then(async ([statusRes, scoreRes]) => {
+                const statusData = await statusRes.json();
+                const scoreData = await scoreRes.json();
 
-                .then(async ([statusRes, scoreRes]) => {
+                absenceCountText.innerText = statusData.absence_count;
+                
+                const serverFocusCount = scoreData.browser_focus_lost_count || 0;
+                browserLostText.innerText = Math.max(localBrowserLostCount, serverFocusCount);
 
-                    const data = await statusRes.json();
-                    const score = await scoreRes.json();
+                const serverSuspiciousCount = scoreData.suspicious_event_count || 0;
+                suspiciousEventText.innerText = Math.max(localSuspiciousCount, serverSuspiciousCount);
 
-                    absenceCountText.innerText = data.absence_count;
+                facePresenceRatioText.innerText = (scoreData.face_presence_ratio || 100) + "%";
+                integrityScoreText.innerText = (scoreData.score || 100) + " / 100";
+                riskLevelText.innerText = scoreData.risk_level || "Low Risk";
 
-                    browserLostCount.innerText = score.browser_lost;
+                if (scoreData.score >= 75) {
+                    integrityScoreText.style.color = "#22c55e";
+                } else if (scoreData.score >= 50) {
+                    integrityScoreText.style.color = "#eab308";
+                } else {
+                    integrityScoreText.style.color = "#ef4444";
+                }
 
-                    liveScore.innerText = score.score;
+                if (statusData.face_present) {
+                    faceStatusBadge.innerText = "Face Present";
+                    faceStatusBadge.className = "badge badge-green";
+                } else {
+                    faceStatusBadge.innerText = "Face Absent";
+                    faceStatusBadge.className = "badge badge-red";
+                }
 
-                    if(score.score>=90)
-                        liveScore.style.color="#22c55e";
+                if (statusData.warning_active) {
+                    faceWarningBanner.style.display = "block";
+                } else {
+                    faceWarningBanner.style.display = "none";
+                }
+            })
+            .catch(err => console.error('Status fetch error:', err));
+        }
 
-                    else if(score.score>=75)
-                        liveScore.style.color="#84cc16";
-
-                    else if(score.score>=50)
-                        liveScore.style.color="#eab308";
-
-                    else if(score.score>=25)
-                        liveScore.style.color="#f97316";
-
-                    else
-                        liveScore.style.color="#ef4444";
-
-                    if(data.face_present){
-
-                        faceStatusBadge.innerText="Face Present";
-                        faceStatusBadge.className="badge badge-green";
-
-                    }else{
-
-                        faceStatusBadge.innerText="Face Absent";
-                        faceStatusBadge.className="badge badge-red";
-
-                    }
-
-                    if(data.warning_active)
-                        faceWarningBanner.style.display="block";
-                    else
-                        faceWarningBanner.style.display="none";
-
-                })
-                .then(res => res.json())
-                .then(data => {
-                    absenceCountText.innerText = data.absence_count;
-                    browserLostText.innerText =data.browser_focus_lost_count;
-                    integrityScoreText.innerText =data.integrity_score + "/100";
-                    riskLevelText.innerText =data.risk_level;
-                    
-                                        if(data.face_present){
-
-                        faceStatusBadge.innerText="Face Present";
-                        faceStatusBadge.className="badge badge-green";
-
-                    }
-                    else{
-
-                        faceStatusBadge.innerText="Face Absent";
-                        faceStatusBadge.className="badge badge-red";
-
-                    }
-                    if (data.warning_active) {
-                        faceWarningBanner.style.display = 'block';
-                    } else {
-                        faceWarningBanner.style.display = 'none';
-                    }
-                })
-                .catch(err => console.error('Status poll error:', err));
-        }, 500);
+        // Poll Face Monitoring Status every 1000ms
+        setInterval(fetchLiveScoreAndStatus, 1000);
     </script>
 </body>
 </html>

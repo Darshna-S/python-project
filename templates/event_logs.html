@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Logs & Integrity Inspector - ProctorGuard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+    }
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 2.5rem;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .nav-brand {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #8b5cf6;
+      text-decoration: none;
+    }
+    .container {
+      max-width: 1300px;
+      margin: 2.5rem auto;
+      padding: 0 1.5rem;
+    }
+    .filter-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .filter-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+    .filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      flex: 1;
+      min-width: 180px;
+    }
+    label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select {
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: #8b5cf6; }
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .btn-primary { background: linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%); color: white; }
+    .btn-secondary { background: rgba(255, 255, 255, 0.08); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); }
+    .table-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+    .data-table th { background: rgba(15, 23, 42, 0.9); color: #94a3b8; font-weight: 600; padding: 14px 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+    .data-table td { padding: 14px 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .data-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .flash { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">📋 Event Logs Table</a>
+    <div>
+      <a href="/" class="btn btn-secondary">🏠 Home</a>
+      <a href="/login" class="btn btn-secondary">👨‍🎓 Candidate Login</a>
+      <a href="/admin/login" class="btn btn-primary">🛡️ Admin Login</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <div>
+        <h2 style="font-size: 1.75rem; font-weight: 700; color: #8b5cf6;">Chronological Event Logs Table</h2>
+        <p style="color: #94a3b8; font-size: 0.9rem;">Filter and inspect proctoring event logs and evidence screenshots</p>
+      </div>
+      <a href="/" class="btn btn-secondary">← Back to Portal Home</a>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="filter-card">
+      <form method="GET" action="/event_logs" class="filter-grid">
+        <div class="filter-item">
+          <label for="candidate_id">Candidate ID</label>
+          <input type="text" id="candidate_id" name="candidate_id" value="{{ request.args.get('candidate_id', '') }}" placeholder="e.g. CAND101">
+        </div>
+
+        <div class="filter-item">
+          <label for="event_type">Event Type</label>
+          <select id="event_type" name="event_type">
+            <option value="">All Events</option>
+            <option value="Face Not Detected" {% if request.args.get('event_type') == 'Face Not Detected' %}selected{% endif %}>Face Not Detected</option>
+            <option value="Browser Focus Lost" {% if request.args.get('event_type') == 'Browser Focus Lost' %}selected{% endif %}>Browser Focus Lost</option>
+            <option value="Browser Tab Switch" {% if request.args.get('event_type') == 'Browser Tab Switch' %}selected{% endif %}>Browser Tab Switch</option>
+            <option value="Multiple Faces Detected" {% if request.args.get('event_type') == 'Multiple Faces Detected' %}selected{% endif %}>Multiple Faces Detected</option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label for="date">Date (YYYY-MM-DD)</label>
+          <input type="date" id="date" name="date" value="{{ request.args.get('date', '') }}">
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="submit" class="btn btn-primary">Filter Logs</button>
+          <a href="/event_logs" class="btn btn-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Event Log Table -->
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Event ID</th>
+            <th>Candidate ID</th>
+            <th>Event Type</th>
+            <th>Timestamp</th>
+            <th>Details</th>
+            <th>Evidence Screenshot</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if events %}
+            {% for event in events %}
+            <tr>
+              <td>#{{ event['id'] }}</td>
+              <td><strong>{{ event['candidate_id'] }}</strong></td>
+              <td><span class="badge">{{ event['event_type'] }}</span></td>
+              <td>{{ event['timestamp'] }}</td>
+              <td>{{ event['details'] or 'Suspicious activity detected' }}</td>
+              <td>
+                {% if event['screenshot_path'] %}
+                  <a href="/view_screenshot/{{ event['id'] }}" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;">📷 View Screenshot</a>
+                {% else %}
+                  <span style="color: #64748b; font-size: 12px;">No Image</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="6" style="text-align: center; color: #94a3b8; padding: 2rem;">
+                No event logs found matching the selected filter criteria.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

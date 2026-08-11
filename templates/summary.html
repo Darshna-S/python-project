@@ -76,58 +76,43 @@
     </div>
 
     <div class="metric-card">
-        <div class="metric-title">Face Absent Count</div>
-        <div class="metric-value" style="color:#f43f5e;">
-            {{ session_data.face_absent_count }}
-        </div>
+        <div class="metric-title">Candidate Name</div>
+        <div class="metric-value">{{ candidate.name }}</div>
     </div>
 
     <div class="metric-card">
-        <div class="metric-title">Browser Focus Lost</div>
-        <div class="metric-value" style="color:#fbbf24;">
-            {{ session_data.browser_focus_lost_count }}
-        </div>
+        <div class="metric-title">Session ID</div>
+        <div class="metric-value">{{ session_data.session_id }}</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-title">Face Present Time</div>
-        <div class="metric-value" style="color:#34d399;">
-            {{ session_data.total_detected_seconds }} s
-        </div>
-    </div>
-
-    <!-- Integrity Score -->
     <div class="metric-card">
         <div class="metric-title">Integrity Score</div>
-
-        {% if session_data.integrity_score >= 90 %}
-            <div class="metric-value" style="color:#22c55e;">
-                {{ session_data.integrity_score }}/100
-            </div>
-
-        {% elif session_data.integrity_score >= 75 %}
-            <div class="metric-value" style="color:#84cc16;">
-                {{ session_data.integrity_score }}/100
-            </div>
-
-        {% elif session_data.integrity_score >= 50 %}
-            <div class="metric-value" style="color:#facc15;">
-                {{ session_data.integrity_score }}/100
-            </div>
-
-        {% elif session_data.integrity_score >= 25 %}
-            <div class="metric-value" style="color:#f97316;">
-                {{ session_data.integrity_score }}/100
-            </div>
-
-        {% else %}
-            <div class="metric-value" style="color:#ef4444;">
-                {{ session_data.integrity_score }}/100
-            </div>
-        {% endif %}
+        <div class="metric-value" style="color:#38bdf8;">
+            {{ session_data.integrity_score }}/100
+        </div>
     </div>
 
-    <!-- Total Penalty -->
+    <div class="metric-card">
+        <div class="metric-title">Risk Label</div>
+        <div class="metric-value" style="color:#84cc16;">
+            {{ session_data.risk_level }}
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-title">Face Presence Ratio</div>
+        <div class="metric-value" style="color:#34d399;">
+            {{ session_data.face_presence_ratio }}%
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-title">Suspicious Event Count</div>
+        <div class="metric-value" style="color:#fbbf24;">
+            {{ session_data.suspicious_event_count }}
+        </div>
+    </div>
+
     <div class="metric-card">
         <div class="metric-title">Total Penalty</div>
         <div class="metric-value" style="color:#ef4444;">
@@ -135,35 +120,46 @@
         </div>
     </div>
 
-    <!-- Risk Level -->
     <div class="metric-card">
-        <div class="metric-title">Risk Level</div>
+        <div class="metric-title">Face Absent Events</div>
+        <div class="metric-value" style="color:#f43f5e;">
+            {{ session_data.face_absent_count }}
+        </div>
+    </div>
 
-        {% if session_data.risk_level == "Excellent" %}
-            <div class="metric-value" style="color:#22c55e;">
-                {{ session_data.risk_level }}
-            </div>
+    <div class="metric-card">
+        <div class="metric-title">Browser Focus Loss Events</div>
+        <div class="metric-value" style="color:#fbbf24;">
+            {{ session_data.browser_focus_lost_count }}
+        </div>
+    </div>
 
-        {% elif session_data.risk_level == "Good" %}
-            <div class="metric-value" style="color:#84cc16;">
-                {{ session_data.risk_level }}
-            </div>
+    <div class="metric-card">
+        <div class="metric-title">Browser Tab Switch Events</div>
+        <div class="metric-value" style="color:#fbbf24;">
+            {{ session_data.tab_switch_count }}
+        </div>
+    </div>
 
-        {% elif session_data.risk_level == "Suspicious" %}
-            <div class="metric-value" style="color:#facc15;">
-                {{ session_data.risk_level }}
-            </div>
+    <div class="metric-card">
+        <div class="metric-title">Multiple Face Events</div>
+        <div class="metric-value" style="color:#f97316;">
+            {{ session_data.multiple_face_count }}
+        </div>
+    </div>
 
-        {% elif session_data.risk_level == "High Risk" %}
-            <div class="metric-value" style="color:#f97316;">
-                {{ session_data.risk_level }}
-            </div>
+    <div class="metric-card">
+        <div class="metric-title">Total Detected Time</div>
+        <div class="metric-value" style="color:#34d399;">
+            {{ session_data.total_detected_seconds }} s
+        </div>
+    </div>
 
-        {% else %}
-            <div class="metric-value" style="color:#ef4444;">
-                {{ session_data.risk_level }}
-            </div>
-        {% endif %}
+    <div class="metric-card">
+        <div class="metric-title">Total Session Time</div>
+        <div class="metric-value" style="color:#38bdf8;">
+            {{ session_data.total_session_seconds }} s
+        </div>
     </div>
 </div>
 

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProctorGuard - Examination Integrity Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 2.5rem;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .nav-brand {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-decoration: none;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 3rem auto;
+      padding: 0 1.5rem;
+      flex: 1;
+    }
+    .hero {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+    .hero h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.75rem;
+    }
+    .hero p {
+      color: #94a3b8;
+      font-size: 1.1rem;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+    /* 3 Main Action Buttons Grid */
+    .portal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+    .portal-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 2.25rem;
+      text-align: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+    }
+    .portal-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+    }
+    .card-icon {
+      font-size: 3.5rem;
+      margin-bottom: 1rem;
+    }
+    .card-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+    }
+    .card-desc {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin-bottom: 1.75rem;
+    }
+    .btn-action {
+      display: inline-block;
+      width: 100%;
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    .btn-candidate {
+      background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
+    }
+    .btn-candidate:hover {
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+    }
+    .btn-admin {
+      background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.35);
+    }
+    .btn-admin:hover {
+      box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5);
+    }
+    .btn-logs {
+      background: linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
+    }
+    .btn-logs:hover {
+      box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5);
+    }
+    .security-banner {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 1.25rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .flash {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      🛡️ ProctorGuard Analytics
+    </a>
+    <div>
+      <a href="/login" style="color: #cbd5e1; text-decoration: none; margin-right: 1.5rem; font-weight: 600;">Candidate Login</a>
+      <a href="/admin/login" style="color: #38bdf8; text-decoration: none; font-weight: 600;">Admin Portal</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="hero">
+      <h1>AI Examination & Integrity Analytics System</h1>
+      <p>Select your portal below to sign in or inspect suspicious event logs separately.</p>
+    </div>
+
+    <!-- 3 Action Buttons Grid -->
+    <div class="portal-grid">
+      <!-- Button 1: Candidate Login -->
+      <div class="portal-card" style="border-color: rgba(16, 185, 129, 0.3);">
+        <div class="card-icon">👨‍🎓</div>
+        <div>
+          <div class="card-title">Candidate Login</div>
+          <div class="card-desc">Sign in as an exam candidate to attend proctored tests, view live webcam monitoring, and access end-session reports.</div>
+        </div>
+        <a href="/login" class="btn-action btn-candidate">👨‍🎓 Candidate Login</a>
+      </div>
+
+      <!-- Button 2: Admin Login -->
+      <div class="portal-card" style="border-color: rgba(59, 130, 246, 0.3);">
+        <div class="card-icon">🛡️</div>
+        <div>
+          <div class="card-title">Admin Login</div>
+          <div class="card-desc">Sign in with administrator privileges to monitor live candidate sessions, view evidence screenshots, and review integrity statistics.</div>
+        </div>
+        <a href="/admin/login" class="btn-action btn-admin">🛡️ Admin Login</a>
+      </div>
+
+      <!-- Button 3: Eventlogs Table -->
+      <div class="portal-card" style="border-color: rgba(139, 92, 246, 0.3);">
+        <div class="card-icon">📋</div>
+        <div>
+          <div class="card-title">Eventlogs Table</div>
+          <div class="card-desc">Directly inspect the chronological Event Logs table, screenshot evidence, timestamps, and score deduction points.</div>
+        </div>
+        <a href="/event_logs" class="btn-action btn-logs">📋 View Eventlogs Table</a>
+      </div>
+    </div>
+
+    <div class="security-banner">
+      🔒 <strong>Role Isolation Policy:</strong> Candidates are strictly prohibited from accessing administrator routes or dashboards. All access attempts are logged and protected.
+    </div>
+  </div>
+</body>
+</html>
