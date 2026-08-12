@@ -38,7 +38,7 @@ class FaceMonitor:
         
         # Temporal smoothing & EMA Bounding Box tracking
         self.face_history = []
-        self.history_size = 6
+        self.history_size = 15
         self.smoothed_bbox = None
         
         # State tracking variables
@@ -270,8 +270,7 @@ class FaceMonitor:
                 if len(self.face_history) > self.history_size:
                     self.face_history.pop(0)
 
-                smoothed_ratio = sum(self.face_history) / float(len(self.face_history))
-                smoothed_present = (smoothed_ratio >= 0.25)
+                smoothed_present = (sum(self.face_history) > 0)
 
                 if smoothed_present and len(faces) <= 1:
                     self.face_present = True

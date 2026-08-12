@@ -1,0 +1,39 @@
+==========================================
+AUTOMATED PROCTORING SESSION LOG REPORT
+==========================================
+Report Generated At,2026-08-12 18:06:26
+
+CANDIDATE DETAILS
+Candidate ID,C002
+Full Name,d
+Email Address,darshna77d@gmail.com
+Registration Photo Path,E:\git folder\python-project\photos\C002_reg_1786537411.jpg
+
+SESSION METRICS SUMMARY
+Session ID,77004b7e
+Start Time,2026-08-12 18:05:31
+End Time,2026-08-12 18:05:57
+Status,Completed
+Total Face Absent Count,0
+Total Browser Focus Lost Count,1
+Total Tab Switch Count,0
+Multiple Face Count,6
+Suspicious Event Count,7
+Face Detected Time (Seconds),12.0
+Total Session Time (Seconds),25.0
+Integrity Score,0
+Total Penalty,100
+Risk Level,High Risk
+
+EVENT LOG CHRONOLOGY
+Log ID,Candidate ID,Session ID,Event Type,Penalty,Timestamp,Remarks,Screenshot Path
+215,C002,77004b7e,Exam Session Started,0,2026-08-12 18:05:31,Candidate initiated proctored exam session.,
+216,C002,77004b7e,Multiple Faces Detected,15,2026-08-12 18:05:44,More than one face detected.,E:\git folder\python-project\absence_screenshots\C002\multiple_faces_1786538144.jpg
+217,C002,77004b7e,Multiple Faces Detected,15,2026-08-12 18:05:45,More than one face detected.,E:\git folder\python-project\absence_screenshots\C002\multiple_faces_1786538146.jpg
+218,C002,77004b7e,Multiple Faces Detected,15,2026-08-12 18:05:49,More than one face detected.,E:\git folder\python-project\absence_screenshots\C002\multiple_faces_1786538150.jpg
+219,C002,77004b7e,Multiple Faces Detected,15,2026-08-12 18:05:50,More than one face detected.,E:\git folder\python-project\absence_screenshots\C002\multiple_faces_1786538150.jpg
+220,C002,77004b7e,Multiple Faces Detected,15,2026-08-12 18:05:53,More than one face detected.,E:\git folder\python-project\absence_screenshots\C002\multiple_faces_1786538153.jpg
+221,C002,77004b7e,Multiple Faces Detected,15,2026-08-12 18:05:55,More than one face detected.,E:\git folder\python-project\absence_screenshots\C002\multiple_faces_1786538156.jpg
+222,C002,77004b7e,Browser Focus Lost,10,2026-08-12 18:05:57,Candidate switched away from exam window,E:\git folder\python-project\absence_screenshots\C002\browser_focus_lost_20260812_180557.jpg
+223,C002,77004b7e,Integrity Score Calculated,0,2026-08-12 18:05:57,"Score=0, Penalty=100, Risk=High Risk",
+224,C002,77004b7e,Exam Session Submitted,0,2026-08-12 18:05:57,Integrity Score=0,

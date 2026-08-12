@@ -68,6 +68,25 @@ class TestEProjectSystem(unittest.TestCase):
             self.assertEqual(res_end.status_code, 200)
             self.assertIn(b'Session Summary', res_end.data)
 
+    def test_candidate_csv_download(self):
+        with self.app.test_client() as client:
+            ts = int(time.time())
+            c_id = f'CAND_CSV_{ts}'
+            client.post('/register', data={
+                'candidate_id': c_id,
+                'name': 'CSV Candidate',
+                'email': f'csv_{ts}@example.com',
+                'password': 'pass'
+            })
+            with client.session_transaction() as sess:
+                sess['candidate_id'] = c_id
+            client.get('/update_session/start')
+            client.get('/update_session/end', follow_redirects=True)
+
+            res_csv_event = client.get('/export_event_logs_csv')
+            self.assertEqual(res_csv_event.status_code, 200)
+            self.assertIn(b'Candidate ID', res_csv_event.data)
+
     def test_candidate_cannot_access_admin(self):
         with self.app.test_client() as client:
             with client.session_transaction() as sess:

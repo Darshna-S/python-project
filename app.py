@@ -2,6 +2,7 @@ import os
 import uuid
 import sqlite3
 import cv2
+import csv
 from datetime import date, datetime
 from scoring import calculate_complete_score
 from database import update_live_integrity_score
@@ -427,6 +428,44 @@ def admin():
         "SELECT COUNT(*) FROM EventLog WHERE event_type='Multiple Faces Detected'"
     ).fetchone()[0] or 0
 
+    high_integrity_candidates = conn.execute('''
+        SELECT 
+            s.session_id,
+            s.candidate_id,
+            c.name as candidate_name,
+            c.email as candidate_email,
+            s.start_time,
+            s.end_time,
+            s.integrity_score,
+            s.face_presence_ratio,
+            s.suspicious_event_count,
+            s.risk_level,
+            s.status
+        FROM Session s
+        JOIN Candidate c ON s.candidate_id = c.candidate_id
+        WHERE s.integrity_score >= 70
+        ORDER BY s.integrity_score DESC, s.start_time DESC
+    ''').fetchall()
+
+    low_integrity_candidates = conn.execute('''
+        SELECT 
+            s.session_id,
+            s.candidate_id,
+            c.name as candidate_name,
+            c.email as candidate_email,
+            s.start_time,
+            s.end_time,
+            s.integrity_score,
+            s.face_presence_ratio,
+            s.suspicious_event_count,
+            s.risk_level,
+            s.status
+        FROM Session s
+        JOIN Candidate c ON s.candidate_id = c.candidate_id
+        WHERE s.integrity_score < 70
+        ORDER BY s.integrity_score ASC, s.start_time DESC
+    ''').fetchall()
+
     candidate_id = request.args.get("candidate_id", "")
     event_type = request.args.get("event_type", "")
     date = request.args.get("date", "")
@@ -471,6 +510,8 @@ def admin():
         highest_score=highest_score,
         lowest_score=lowest_score,
         avg_face_presence_ratio=avg_face_presence_ratio,
+        high_integrity_candidates=high_integrity_candidates,
+        low_integrity_candidates=low_integrity_candidates,
         events=events
     )
 @app.route('/admin/register', methods=['GET', 'POST'])
@@ -764,19 +805,68 @@ def session_summary(session_id):
 
 @app.route('/export_csv/<session_id>')
 def export_csv(session_id):
-
     if not session.get('admin_logged_in'):
-        return redirect('/admin/login')
+        if 'candidate_id' not in session:
+            flash("Error: Please log in to download event log CSV report.")
+            return redirect('/login')
+
+        conn = get_db_connection()
+        session_row = conn.execute(
+            "SELECT candidate_id FROM Session WHERE session_id = ?",
+            (session_id,)
+        ).fetchone()
+        conn.close()
+
+        if not session_row or session_row['candidate_id'] != session['candidate_id']:
+            flash("Access Denied: You can only download CSV reports for your own exam sessions.")
+            return redirect('/dashboard')
 
     filename = f"proctor_log_{session_id}.csv"
     filepath = os.path.join(BASE_DIR, filename)
-    
+
     success = export_session_csv(session_id, filepath)
     if success:
         return send_file(filepath, as_attachment=True, download_name=filename)
     else:
         flash("Error generating CSV export file.")
-        return redirect('/admin')
+        return redirect('/dashboard' if 'candidate_id' in session else '/admin')
+
+
+@app.route('/export_event_logs_csv')
+def export_event_logs_csv():
+    if not session.get('admin_logged_in') and 'candidate_id' not in session:
+        flash("Error: Please log in to download event log CSV report.")
+        return redirect('/login')
+
+    conn = get_db_connection()
+    c_id = session.get('candidate_id')
+
+    if session.get('admin_logged_in'):
+        events = conn.execute("SELECT * FROM EventLog ORDER BY id DESC").fetchall()
+        filename = "all_proctor_event_logs.csv"
+    else:
+        events = conn.execute("SELECT * FROM EventLog WHERE candidate_id = ? ORDER BY id DESC", (c_id,)).fetchall()
+        filename = f"event_logs_{c_id}.csv"
+
+    conn.close()
+
+    filepath = os.path.join(BASE_DIR, filename)
+    with open(filepath, 'w', newline='', encoding='utf-8') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(['Log ID', 'Candidate ID', 'Session ID', 'Event Type', 'Penalty', 'Timestamp', 'Remarks', 'Screenshot Path'])
+        for e in events:
+            writer.writerow([
+                e['id'],
+                e['candidate_id'],
+                e['session_id'] or '',
+                e['event_type'],
+                e['penalty'],
+                e['timestamp'],
+                e['remarks'],
+                e['screenshot_path'] or ''
+            ])
+
+    return send_file(filepath, as_attachment=True, download_name=filename)
 
 @app.route('/logout')
 def logout():

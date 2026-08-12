@@ -128,7 +128,10 @@
         <h2 style="font-size: 1.75rem; font-weight: 700; color: #8b5cf6;">Chronological Event Logs Table</h2>
         <p style="color: #94a3b8; font-size: 0.9rem;">Filter and inspect proctoring event logs and evidence screenshots</p>
       </div>
-      <a href="/" class="btn btn-secondary">← Back to Portal Home</a>
+      <div>
+        <a href="/export_event_logs_csv" class="btn" style="background:linear-gradient(90deg, #10b981 0%, #059669 100%); color:white; margin-right:10px;">📥 Download Event Log CSV</a>
+        <a href="/" class="btn btn-secondary">← Back to Portal Home</a>
+      </div>
     </div>
 
     <!-- Filter Form -->
@@ -186,9 +189,11 @@
               <td>{{ event['details'] or 'Suspicious activity detected' }}</td>
               <td>
                 {% if event['screenshot_path'] %}
-                  <a href="/view_screenshot/{{ event['id'] }}" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;">📷 View Screenshot</a>
+                  <a href="/view_screenshot/{{ event['id'] }}" target="_blank" style="color:#8b5cf6; text-decoration:none; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:4px;">
+                    🔗 View Screenshot Evidence
+                  </a>
                 {% else %}
-                  <span style="color: #64748b; font-size: 12px;">No Image</span>
+                  <span style="color: #64748b; font-size: 12px;">No Screenshot</span>
                 {% endif %}
               </td>
             </tr>

@@ -1,0 +1,38 @@
+==========================================
+AUTOMATED PROCTORING SESSION LOG REPORT
+==========================================
+Report Generated At,2026-08-12 18:11:18
+
+CANDIDATE DETAILS
+Candidate ID,C001
+Full Name,d
+Email Address,darshna77d@gmail.com
+Registration Photo Path,E:\git folder\python-project\photos\C001_reg_1786538397.jpg
+
+SESSION METRICS SUMMARY
+Session ID,b7b52665
+Start Time,2026-08-12 18:10:08
+End Time,2026-08-12 18:10:50
+Status,Completed
+Total Face Absent Count,1
+Total Browser Focus Lost Count,1
+Total Tab Switch Count,1
+Multiple Face Count,4
+Suspicious Event Count,6
+Face Detected Time (Seconds),31.0
+Total Session Time (Seconds),42.0
+Integrity Score,20
+Total Penalty,80
+Risk Level,High Risk
+
+EVENT LOG CHRONOLOGY
+Log ID,Candidate ID,Session ID,Event Type,Penalty,Timestamp,Remarks,Screenshot Path
+3,C001,b7b52665,Exam Session Started,0,2026-08-12 18:10:08,Candidate initiated proctored exam session.,
+4,C001,b7b52665,Browser Tab Switch,10,2026-08-12 18:10:21,Candidate switched browser tab,
+5,C001,b7b52665,Multiple Faces Detected,15,2026-08-12 18:10:30,More than one face detected.,E:\git folder\python-project\absence_screenshots\C001\multiple_faces_1786538431.jpg
+6,C001,b7b52665,Multiple Faces Detected,15,2026-08-12 18:10:32,More than one face detected.,E:\git folder\python-project\absence_screenshots\C001\multiple_faces_1786538433.jpg
+7,C001,b7b52665,Multiple Faces Detected,15,2026-08-12 18:10:41,More than one face detected.,E:\git folder\python-project\absence_screenshots\C001\multiple_faces_1786538442.jpg
+8,C001,b7b52665,Multiple Faces Detected,15,2026-08-12 18:10:47,More than one face detected.,E:\git folder\python-project\absence_screenshots\C001\multiple_faces_1786538448.jpg
+9,C001,b7b52665,Browser Focus Lost,10,2026-08-12 18:10:50,Candidate switched away from exam window,E:\git folder\python-project\absence_screenshots\C001\browser_focus_lost_20260812_181050.jpg
+10,C001,b7b52665,Integrity Score Calculated,0,2026-08-12 18:10:50,"Score=20, Penalty=80, Risk=High Risk",
+11,C001,b7b52665,Exam Session Submitted,0,2026-08-12 18:10:50,Integrity Score=20,

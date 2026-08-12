@@ -257,6 +257,82 @@ body {
     </div>
 </div>
 
+<h3 style="font-size: 18px; color: #10b981; margin-top: 35px; margin-bottom: 15px;">
+    🟢 Candidates Attended Exam - High Integrity Score (≥ 70% | Low Risk)
+</h3>
+<div class="table-card" style="margin-bottom: 35px;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Candidate Name</th>
+                <th>Candidate ID</th>
+                <th>Session ID</th>
+                <th>Integrity Score</th>
+                <th>Face Presence Ratio</th>
+                <th>Suspicious Incidents</th>
+                <th>Risk Classification</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if high_integrity_candidates %}
+                {% for cand in high_integrity_candidates %}
+                <tr>
+                    <td><strong>{{ cand['candidate_name'] }}</strong><br><small style="color:#64748b;">{{ cand['candidate_email'] }}</small></td>
+                    <td><code>{{ cand['candidate_id'] }}</code></td>
+                    <td><code>{{ cand['session_id'] }}</code></td>
+                    <td><span style="font-size:16px; font-weight:700; color:#10b981;">{{ cand['integrity_score'] }} / 100</span></td>
+                    <td><span style="color:#38bdf8; font-weight:600;">{{ cand['face_presence_ratio'] }}%</span></td>
+                    <td><span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid #3b82f6;">{{ cand['suspicious_event_count'] }} events</span></td>
+                    <td><span class="badge" style="background:rgba(16,185,129,0.2); color:#34d399; border:1px solid #10b981;">{{ cand['risk_level'] }}</span></td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="7" style="text-align:center; color:#94a3b8; padding:1.5rem;">No candidates with High Integrity Score recorded yet.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<h3 style="font-size: 18px; color: #ef4444; margin-bottom: 15px;">
+    🔴 Candidates Attended Exam - Low Integrity Score (< 70% | Requires Admin Review)
+</h3>
+<div class="table-card" style="margin-bottom: 35px;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Candidate Name</th>
+                <th>Candidate ID</th>
+                <th>Session ID</th>
+                <th>Integrity Score</th>
+                <th>Face Presence Ratio</th>
+                <th>Suspicious Incidents</th>
+                <th>Risk Classification</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if low_integrity_candidates %}
+                {% for cand in low_integrity_candidates %}
+                <tr>
+                    <td><strong>{{ cand['candidate_name'] }}</strong><br><small style="color:#64748b;">{{ cand['candidate_email'] }}</small></td>
+                    <td><code>{{ cand['candidate_id'] }}</code></td>
+                    <td><code>{{ cand['session_id'] }}</code></td>
+                    <td><span style="font-size:16px; font-weight:700; color:#ef4444;">{{ cand['integrity_score'] }} / 100</span></td>
+                    <td><span style="color:#fbbf24; font-weight:600;">{{ cand['face_presence_ratio'] }}%</span></td>
+                    <td><span class="badge" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid #ef4444;">{{ cand['suspicious_event_count'] }} events</span></td>
+                    <td><span class="badge" style="background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid #ef4444;">{{ cand['risk_level'] }}</span></td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="7" style="text-align:center; color:#94a3b8; padding:1.5rem;">No low integrity candidates flagged. All attended candidate scores are above 70%!</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
 <h3 style="font-size: 18px; color: #38bdf8; margin-bottom: 15px;">Recent Suspicious Event Logs & Screenshot Evidence</h3>
 
 <!-- Event Logs Table -->
@@ -281,8 +357,8 @@ body {
                     <td>{{ event['timestamp'] }}</td>
                     <td>
                         {% if event['screenshot_path'] %}
-                            <a href="/view_screenshot/{{ event['id'] }}" target="_blank">
-                                <img src="/view_screenshot/{{ event['id'] }}" width="90" height="60" style="object-fit:cover; border-radius:6px; border:1px solid #334155;" alt="Evidence">
+                            <a href="/view_screenshot/{{ event['id'] }}" target="_blank" style="color:#38bdf8; text-decoration:none; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:4px;">
+                                🔗 View Screenshot Evidence
                             </a>
                         {% else %}
                             <span style="color:#64748b; font-size:12px;">No Screenshot</span>

@@ -1,0 +1,5 @@
+Log ID,Candidate ID,Session ID,Event Type,Penalty,Timestamp,Remarks,Screenshot Path
+208,CAND_CSV_1786537841,1085b2bf,Exam Session Submitted,0,2026-08-12 18:00:48,Integrity Score=100,
+207,CAND_CSV_1786537841,1085b2bf,Integrity Score Calculated,0,2026-08-12 18:00:48,"Score=100, Penalty=0, Risk=Low Risk",
+206,CAND_CSV_1786537841,1085b2bf,Exam Session Started,0,2026-08-12 18:00:48,Candidate initiated proctored exam session.,
+205,CAND_CSV_1786537841,,Candidate Registered,0,2026-08-12 18:00:48,Registered profile for CSV Candidate (csv_1786537841@example.com) with photo capture.,
